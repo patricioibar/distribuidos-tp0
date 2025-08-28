@@ -18,6 +18,8 @@ def escribir_servidor(archivo):
         "      - LOGGING_LEVEL=DEBUG\n"
         "    networks:\n"
         "      - testing_net\n"
+        "    volumes:\n"
+        "      - ./server/config.ini:/config.ini\n"
     )
 
 def escribir_cliente(archivo, numero):
@@ -33,6 +35,8 @@ def escribir_cliente(archivo, numero):
         f"      - testing_net\n"
         f"    depends_on:\n"
         f"      - server\n"
+        f"    volumes:\n"
+        f"      - ./client/config.yaml:/config.yaml\n"
     )
     
 def escribir_network(archivo):
