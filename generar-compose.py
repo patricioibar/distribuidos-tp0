@@ -54,7 +54,7 @@ if __name__ == "__main__":
     nombre_archivo = sys.argv[1]
     try:
         cantidad = int(sys.argv[2])
-        if cantidad < 1:
+        if cantidad < 0:
             raise ValueError
     except ValueError:
         print("La cantidad de clientes debe ser un entero positivo.")
