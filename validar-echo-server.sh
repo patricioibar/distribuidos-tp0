@@ -23,6 +23,6 @@ else
     echo "action: test_echo_server | result: fail"
 fi
 
-sudo docker compose -f docker-compose-dev.yaml down
+sudo docker compose -f docker-compose-dev.yaml down --remove-orphans
 mv -f "$BACKUP_FILE" "$CONF_FILE"
 
