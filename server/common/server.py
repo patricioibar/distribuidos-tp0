@@ -1,6 +1,6 @@
 import socket
 import logging
-
+import signal
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -8,6 +8,7 @@ class Server:
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
+        self.running = False
 
     def run(self):
         """
@@ -17,10 +18,12 @@ class Server:
         communication with a client. After client with communucation
         finishes, servers starts to accept new connections again
         """
+        self.running = True
+        signal.signal(signal.SIGTERM, lambda _signum, _frame: self.stop())
 
         # TODO: Modify this program to handle signal to graceful shutdown
         # the server
-        while True:
+        while self.running:
             client_sock = self.__accept_new_connection()
             self.__handle_client_connection(client_sock)
 
@@ -31,6 +34,9 @@ class Server:
         If a problem arises in the communication with the client, the
         client socket will also be closed
         """
+        if client_sock is None:
+            return
+        
         try:
             # TODO: Modify the receive to avoid short-reads
             msg = client_sock.recv(1024).rstrip().decode('utf-8')
@@ -39,7 +45,9 @@ class Server:
             # TODO: Modify the send to avoid short-writes
             client_sock.send("{}\n".format(msg).encode('utf-8'))
         except OSError as e:
-            logging.error("action: receive_message | result: fail | error: {e}")
+            if not self.running:
+                return
+            logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
             client_sock.close()
 
@@ -53,6 +61,21 @@ class Server:
 
         # Connection arrived
         logging.info('action: accept_connections | result: in_progress')
-        c, addr = self._server_socket.accept()
-        logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
-        return c
+        try: 
+            c, addr = self._server_socket.accept()
+            logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
+            return c
+        except OSError as e:
+            if self.running:
+                logging.error(f"action: accept_connections | result: fail | error: {e}")
+            return None
+
+    def stop(self):
+        """
+        Stop the server
+
+        Function that stops the server and closes the server socket
+        """
+        self.running = False
+        self._server_socket.close()
+        logging.info("action: stop_server | result: success")
