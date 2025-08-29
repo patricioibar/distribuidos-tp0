@@ -18,11 +18,10 @@ class Server:
         communication with a client. After client with communucation
         finishes, servers starts to accept new connections again
         """
+
         self.running = True
         signal.signal(signal.SIGTERM, lambda _signum, _frame: self.stop())
 
-        # TODO: Modify this program to handle signal to graceful shutdown
-        # the server
         while self.running:
             client_sock = self.__accept_new_connection()
             self.__handle_client_connection(client_sock)
