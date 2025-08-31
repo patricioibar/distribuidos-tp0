@@ -45,7 +45,7 @@ class Server:
             store_bets([bet])
             
             addr = client_sock.getpeername()
-            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
+            logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number} | ip: {addr[0]}')
             ProtocolMessage.send_string_to_sock(client_sock, f"{msg}")
         except OSError as e:
             if not self.running:
