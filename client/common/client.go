@@ -1,7 +1,6 @@
 package common
 
 import (
-	"bufio"
 	"fmt"
 	"net"
 	"os"
@@ -67,43 +66,57 @@ func (c *Client) createClientSocket() error {
 func (c *Client) StartClientLoop() {
 	// There is an autoincremental msgID to identify every message sent
 	// Messages if the message amount threshold has not been surpassed
+
 	c.running = true
-	for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
-		// Create the connection the server in every loop iteration. Send an
+	if !c.running {
+		return
+	}
+
+	c.createClientSocket()
+
+	msg := c.createMessageFromEnvVars()
+
+	err := SendMessage(c.conn, msg)
+	if err != nil {
 		if !c.running {
 			return
 		}
-		c.createClientSocket()
-
-		// TODO: Modify the send to avoid short-write
-		fmt.Fprintf(
-			c.conn,
-			"[CLIENT %v] Message N°%v\n",
+		log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
 			c.config.ID,
-			msgID,
+			err,
 		)
-		msg, err := bufio.NewReader(c.conn).ReadString('\n')
-		c.conn.Close()
+		return
+	}
 
-		if err != nil {
-			if !c.running {
-				return
-			}
-			log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
-				c.config.ID,
-				err,
-			)
+	msg2, err2 := ReceiveMessage(c.conn)
+	c.conn.Close()
+
+	if err2 != nil {
+		if !c.running {
 			return
 		}
-
-		log.Infof("action: receive_message | result: success | client_id: %v | msg: %v",
+		log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
 			c.config.ID,
-			msg,
+			err2,
 		)
-
-		// Wait a time between sending one message and the next one
-		time.Sleep(c.config.LoopPeriod)
-
+		return
 	}
-	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+
+	if msg == msg2 {
+		log.Infof("action: apuesta_enviada | result: success | dni: %s | numero: %s",
+			os.Getenv("DOCUMENTO"),
+			os.Getenv("NUMERO"),
+		)
+	}
+}
+
+func (c *Client) createMessageFromEnvVars() Message {
+	nombre := os.Getenv("NOMBRE")
+	apellido := os.Getenv("APELLIDO")
+	dni := os.Getenv("DOCUMENTO")
+	nacimiento := os.Getenv("NACIMIENTO")
+	numero := os.Getenv("NUMERO")
+	msg := fmt.Sprintf("%s | %s | %s | %s | %s | %s",
+		c.config.ID, nombre, apellido, dni, nacimiento, numero)
+	return StringMessage{Value: msg}
 }
