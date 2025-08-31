@@ -22,7 +22,7 @@ class ProtocolMessage:
         while len(body) < length:
             packet = sock.recv(length - len(body))
             if not packet:
-                raise EOFError("Socket cerrado antes de recibir los datos completos")
+                raise EOFError("Socket closed before receiving full message")
             body.extend(packet)
             
         constructor = TYPE_TO_CONSTRUCTOR.get(type)
