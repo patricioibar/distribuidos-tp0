@@ -1,6 +1,8 @@
 import socket
 import logging
 import signal
+from communication import ProtocolMessage
+from utils import Bet, store_bets
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -37,12 +39,14 @@ class Server:
             return
         
         try:
-            # TODO: Modify the receive to avoid short-reads
-            msg = client_sock.recv(1024).rstrip().decode('utf-8')
+            msg = ProtocolMessage.new_from_sock(client_sock)
+            
+            bet = Bet.from_string(msg)
+            store_bets([bet])
+            
             addr = client_sock.getpeername()
             logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
-            # TODO: Modify the send to avoid short-writes
-            client_sock.send("{}\n".format(msg).encode('utf-8'))
+            ProtocolMessage.send_string_to_sock(client_sock, f"{msg}")
         except OSError as e:
             if not self.running:
                 return
