@@ -1,8 +1,8 @@
 import socket
 import logging
 import signal
-from communication import ProtocolMessage
-from utils import Bet, store_bets
+from .communication import ProtocolMessage
+from .utils import Bet, store_bets
 
 class Server:
     def __init__(self, port, listen_backlog):
