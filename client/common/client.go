@@ -13,6 +13,12 @@ import (
 
 var log = logging.MustGetLogger("log")
 
+const ENV_NOMBRE = "NOMBRE"
+const ENV_APELLIDO = "APELLIDO"
+const ENV_DOCUMENTO = "DOCUMENTO"
+const ENV_NACIMIENTO = "NACIMIENTO"
+const ENV_NUMERO = "NUMERO"
+
 // ClientConfig Configuration used by the client
 type ClientConfig struct {
 	ID            string
@@ -74,9 +80,22 @@ func (c *Client) StartClientLoop() {
 
 	c.createClientSocket()
 
+	agency_name := "Agency-" + c.config.ID
+	err := SendMessage(c.conn, StringMessage{Value: agency_name})
+	if err != nil {
+		if !c.running {
+			return
+		}
+		log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
+		return
+	}
+
 	msg := c.createMessageFromEnvVars()
 
-	err := SendMessage(c.conn, msg)
+	err = SendMessage(c.conn, msg)
 	if err != nil {
 		if !c.running {
 			return
@@ -104,19 +123,20 @@ func (c *Client) StartClientLoop() {
 
 	if msg == msg2 {
 		log.Infof("action: apuesta_enviada | result: success | dni: %s | numero: %s",
-			os.Getenv("DOCUMENTO"),
-			os.Getenv("NUMERO"),
+			os.Getenv(ENV_DOCUMENTO),
+			os.Getenv(ENV_NUMERO),
 		)
 	}
 }
 
 func (c *Client) createMessageFromEnvVars() Message {
-	nombre := os.Getenv("NOMBRE")
-	apellido := os.Getenv("APELLIDO")
-	dni := os.Getenv("DOCUMENTO")
-	nacimiento := os.Getenv("NACIMIENTO")
-	numero := os.Getenv("NUMERO")
-	msg := fmt.Sprintf("%s | %s | %s | %s | %s | %s",
-		c.config.ID, nombre, apellido, dni, nacimiento, numero)
+	nombre := os.Getenv(ENV_NOMBRE)
+	apellido := os.Getenv(ENV_APELLIDO)
+	dni := os.Getenv(ENV_DOCUMENTO)
+	nacimiento := os.Getenv(ENV_NACIMIENTO)
+	numero := os.Getenv(ENV_NUMERO)
+	msg := fmt.Sprintf("%s,%s,%s,%s,%s",
+		nombre, apellido, dni, nacimiento, numero)
+	log.Debugf("action: create_message | result: success | msg: %s", msg)
 	return StringMessage{Value: msg}
 }

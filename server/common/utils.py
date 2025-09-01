@@ -24,16 +24,16 @@ class Bet:
         self.birthdate = datetime.date.fromisoformat(birthdate)
         self.number = int(number)
     
-    def from_string(string: str) -> 'Bet':
+    def from_string(agency:str, string: str) -> 'Bet':
         """
         Create a Bet instance from a string with the following format.
-        agency | first_name | last_name | document | birthdate | number
+        first_name, last_name, document, birthdate, number
         """
-        parts = string.split('|')
-        if len(parts) != 6:
+        parts = string.split(',')
+        if len(parts) != 5:
             raise ValueError("Incorrect string format.")
         parts = [part.strip() for part in parts]
-        return Bet(parts[0], parts[1], parts[2], parts[3], parts[4], parts[5])
+        return Bet(agency, parts[0], parts[1], parts[2], parts[3], parts[4])
 
 """ Checks whether a bet won the prize or not. """
 def has_won(bet: Bet) -> bool:

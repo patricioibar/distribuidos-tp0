@@ -39,9 +39,10 @@ class Server:
             return
         
         try:
+            agency_name = ProtocolMessage.new_from_sock(client_sock)
             msg = ProtocolMessage.new_from_sock(client_sock)
-            
-            bet = Bet.from_string(msg)
+
+            bet = Bet.from_string(agency_name, msg)
             store_bets([bet])
             
             addr = client_sock.getpeername()
