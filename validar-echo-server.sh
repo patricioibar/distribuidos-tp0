@@ -1,7 +1,6 @@
 #!/bin/bash
 
 CONF_FILE="server/config.ini"
-PORT="12345"
 NET_NAME="tp0_testing_net"
 
 if [ ! -f "$CONF_FILE" ]; then
