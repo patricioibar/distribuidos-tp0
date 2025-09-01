@@ -49,12 +49,13 @@ func SendMessage(conn net.Conn, msg Message) error {
 	binary.BigEndian.PutUint32(header[1:], uint32(len(body)))
 
 	packet := append(header, body...)
-	n, err := conn.Write(packet)
-	if err != nil {
-		return err
-	}
-	if n != len(packet) {
-		return fmt.Errorf("failed to write complete message: wrote %d of %d bytes", n, len(packet))
+	totalWritten := 0
+	for totalWritten < len(packet) {
+		n, err := conn.Write(packet[totalWritten:])
+		if err != nil {
+			return err
+		}
+		totalWritten += n
 	}
 	return nil
 }
