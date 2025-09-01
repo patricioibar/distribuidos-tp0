@@ -20,7 +20,7 @@ Este ejercicio lo resolví modificando exclusivamente el script `generar-compose
 
 Para resolverlo, bastó con crear un volumen en cada servicio (server y client). Los volúmenes montan los archivos `config.ini` y `config.yaml` para el servidor y los clientes respectivamente en los contenedores donde se ejecutan. De esta manera, los cambios que se hagan sobre esos archivos en la computadora host serán inmediatamente visibles en los contenedores, sin necesidad de reconstruir las imágenes de Docker.
 
-## Superposición entre variables de entorno y archivo de configuración
+### Superposición entre variables de entorno y archivo de configuración
 
 Cuando corrí los tests, me encontré conq que dos de ellos fallaban por una superposición en las configuraciones: había configuraciones de log level tanto en las variables de entorno como en los archivos. Los tests fallaban porque la configuración esperada era la provista por el archivo de configuración, pero se adoptaba la provista por las variables de entorno.
 
