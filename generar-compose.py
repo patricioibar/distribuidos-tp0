@@ -40,6 +40,7 @@ def escribir_cliente(archivo, numero):
         f"      - server\n"
         f"    volumes:\n"
         f"      - ./client/config.yaml:/config.yaml\n"
+        f"      - ./.data/agency-{numero}.csv:/data/agency-{numero}.csv\n"
     )
     
 def escribir_network(archivo):
