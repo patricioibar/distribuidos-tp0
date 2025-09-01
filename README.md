@@ -79,8 +79,6 @@ BYTE 0      1      2      3      4      5      6      7      8
       
 ```
 
-Para evitar los **short reads** siempre se esperan recibir 5 bytes para el header. Luego, teniendo el largo del payload o body del mensaje, se espera recibir esa cantidad de bytes. Si en alguno de esos dos casos no se pueden obtener los suficientes bytes, se lanza una excepción.
-
 Para este ejercicio sólo implementé un tipo de mensaje, el tipo `0x01` en el cual se envía un único String codificado con UTF-8 en el body.
 
 ### Cliente
@@ -99,3 +97,8 @@ Adicionalmente, para que pasen los tests, fue necesario modificar nuevamente el 
 ### Servidor
 El servidor se comporta de la manera esperada como se describió para el cliente.
 Primero espera recibir el número de agencia, luego los datos para una apuesta. Si los datos fueron enviados en el formato correcto, se almacena la apuesta utilizando la función `store_bet` y luego se le responde al cliente con una copia del mensaje que envió. Finalmente cierra la conexión con el cliente.
+
+### Short Reads y Short Writes
+Para evitar los **short reads** siempre se esperan recibir 5 bytes para el header. Luego, teniendo el largo del payload o body del mensaje, se espera recibir esa cantidad de bytes. Si no ocurre ningún error pero no se obtienen los bytes suficientes, se sigue esperando hasta obtener los indicados. Si ocurre algún error antes de obtener los bytes necesarios, se eleva ese ese error.
+
+Para evitar los **short writes** en el servidor se utiliza la función `socket.sendall` que no retorna hasta haber enviado todos los bytes indicados o hasta que ocurra un error. En el cliente no existe una función como `sendall`, por lo que si se retorna sin haber enviado los bytes indicados se continúa enviando los faltantes hasta que se logren enviar todos u ocurra un error.
