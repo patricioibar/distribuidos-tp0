@@ -25,6 +25,7 @@ type ClientConfig struct {
 	ServerAddress string
 	LoopAmount    int
 	LoopPeriod    time.Duration
+	MaxBatchSize  int
 }
 
 // Client Entity that encapsulates how
