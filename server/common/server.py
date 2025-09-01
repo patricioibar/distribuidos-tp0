@@ -10,6 +10,7 @@ class Server:
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
+        self._client_socket = None
         self.running = False
 
     def run(self):
@@ -25,35 +26,35 @@ class Server:
         signal.signal(signal.SIGTERM, lambda _signum, _frame: self.stop())
 
         while self.running:
-            client_sock = self.__accept_new_connection()
-            self.__handle_client_connection(client_sock)
+            self.__accept_new_connection()
+            self.__handle_client_connection()
 
-    def __handle_client_connection(self, client_sock):
+    def __handle_client_connection(self):
         """
         Read message from a specific client socket and closes the socket
 
         If a problem arises in the communication with the client, the
         client socket will also be closed
         """
-        if client_sock is None:
+        if self._client_socket is None:
             return
         
         try:
-            agency = ProtocolMessage.new_from_sock(client_sock)
-            msg = ProtocolMessage.new_from_sock(client_sock)
+            agency = ProtocolMessage.new_from_sock(self._client_socket)
+            msg = ProtocolMessage.new_from_sock(self._client_socket)
 
             bet = Bet.from_string(agency, msg)
             store_bets([bet])
             
-            addr = client_sock.getpeername()
+            addr = self._client_socket.getpeername()
             logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number} | ip: {addr[0]}')
-            ProtocolMessage.send_string_to_sock(client_sock, f"{msg}")
+            ProtocolMessage.send_string_to_sock(self._client_socket, f"{msg}")
         except Exception as e:
             if not self.running:
                 return
             logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
-            client_sock.close()
+            self._client_socket.close()
 
     def __accept_new_connection(self):
         """
@@ -68,11 +69,10 @@ class Server:
         try: 
             c, addr = self._server_socket.accept()
             logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
-            return c
+            self._client_socket = c
         except OSError as e:
             if self.running:
                 logging.error(f"action: accept_connections | result: fail | error: {e}")
-            return None
 
     def stop(self):
         """
@@ -82,4 +82,7 @@ class Server:
         """
         self.running = False
         self._server_socket.close()
-        logging.info("action: stop_server | result: success")
+        logging.info("action: server_socket_closed | result: success")
+        if self._client_socket is not None:
+            self._client_socket.close()
+            logging.info("action: client_socket_closed | result: success")

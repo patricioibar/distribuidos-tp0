@@ -47,6 +47,7 @@ func NewClient(config ClientConfig) *Client {
 		<-sig
 		client.running = false
 		client.conn.Close()
+		log.Infof("action: socket_closed | result: success | client_id: %v", client.config.ID)
 	}()
 
 	return client
