@@ -8,7 +8,7 @@ if [ ! -f "$CONF_FILE" ]; then
     exit 1
 fi
 
-source "$CONF_FILE"
+PORT=$(grep -E '^SERVER_PORT' "$CONF_FILE" | cut -d'=' -f2 | xargs)
 
 if [ -z "$PORT" ]; then
   echo "Error: el archivo $CONF_FILE debe definir PORT"
