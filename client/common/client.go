@@ -80,8 +80,7 @@ func (c *Client) StartClientLoop() {
 
 	c.createClientSocket()
 
-	agency_name := "Agency-" + c.config.ID
-	err := SendMessage(c.conn, StringMessage{Value: agency_name})
+	err := SendMessage(c.conn, StringMessage{Value: c.config.ID})
 	if err != nil {
 		if !c.running {
 			return
