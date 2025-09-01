@@ -61,3 +61,41 @@ En Go, se utiliza `os.Signal` para crear un canal por el cual se transmitirán l
 En este caso solo manejamos la señal `SIGTERM` con una función que cierra la conexión con el servidor y actualiza el estado interno `running` a falso.
 
 Se modificó el hilo principal del cliente para que se cierre agraciadamente frente a esos eventos.
+
+## Ejercicio 5
+
+### Comunicación
+Se implementaron módulos de comunicación tanto para el cliente como para el servidor.
+
+Ambos módulos hacen escencialmente lo mismo, aunque pueden diferir en pequeños detalles de implementación ya que están en lenguajes distintos.
+
+Ideé un protocolo de comunicación básico e independiente del modelo de dominio del sistema. El protocolo consiste básicamente de un header de 5 bytes, el primero para especificar el tipo de mensaje que se está enviando y los otros 4 para el largo del cuerpo del mensaje. Los bytes del largo del body se envían en big endian.
+
+```
+BYTE 0      1      2      3      4      5      6      7      8
+     +------+------+------+------+------+------+------+------+---
+     | TYPE |           LENGTH          |   BODY (VARIABLE)   ...
+     +------+------+------+------+------+------+------+------+---
+      
+```
+
+Para evitar los **short reads** siempre se esperan recibir 5 bytes para el header. Luego, teniendo el largo del payload o body del mensaje, se espera recibir esa cantidad de bytes. Si en alguno de esos dos casos no se pueden obtener los suficientes bytes, se lanza una excepción.
+
+Para este ejercicio sólo implementé un tipo de mensaje, el tipo `0x01` en el cual se envía un único String codificado con UTF-8 en el body.
+
+### Cliente
+Se modificó el comportamiento del cliente para que envíe al servidor solamente dos mensajes. El primero informa su número de agencia, y el segundo envia los datos necesarios para la apuesta de una persona separados por coma en el siguiente orden:
+
+```
+nombre, apellido, documento, nacimiento, número
+```
+
+Los datos requeridos para enviar los datos de la apuesta son tomados de variables de entorno como pide la consigna, y el número de agencia es el que se obtiene mediante el archivo de configuración.
+
+Luego, espera que el servidor responda con los mismos datos que se le enviaron para confirmar la recepción del mensaje.
+
+Adicionalmente, para que pasen los tests, fue necesario modificar nuevamente el test `generar-compose.py` para agregar variables de entorno con datos de una apuesta. Se hardcodearon los mismos datos propuestos por la consigna.
+
+### Servidor
+El servidor se comporta de la manera esperada como se describió para el cliente.
+Primero espera recibir el número de agencia, luego los datos para una apuesta. Si los datos fueron enviados en el formato correcto, se almacena la apuesta utilizando la función `store_bet` y luego se le responde al cliente con una copia del mensaje que envió. Finalmente cierra la conexión con el cliente.
