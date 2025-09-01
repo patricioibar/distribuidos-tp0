@@ -77,4 +77,4 @@ class Server:
         """
         self.running = False
         self._server_socket.close()
-        logging.info("action: stop_server | result: success")
+        logging.info("action: socket_closed | result: success")
