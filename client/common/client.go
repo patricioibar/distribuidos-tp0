@@ -1,6 +1,7 @@
 package common
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 	"os"
@@ -81,6 +82,7 @@ func (c *Client) StartClientLoop() {
 	}
 
 	c.createClientSocket()
+	defer c.conn.Close()
 
 	err := SendMessage(c.conn, StringMessage{Value: c.config.ID})
 	if err != nil {
@@ -94,22 +96,12 @@ func (c *Client) StartClientLoop() {
 		return
 	}
 
-	msg := c.createMessageFromEnvVars()
-
-	err = SendMessage(c.conn, msg)
-	if err != nil {
-		if !c.running {
-			return
-		}
-		log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
-			c.config.ID,
-			err,
-		)
+	shouldReturn := c.sendBatchedData()
+	if shouldReturn {
 		return
 	}
 
-	msg2, err2 := ReceiveMessage(c.conn)
-	c.conn.Close()
+	_, err2 := ReceiveMessage(c.conn)
 
 	if err2 != nil {
 		if !c.running {
@@ -122,22 +114,56 @@ func (c *Client) StartClientLoop() {
 		return
 	}
 
-	if msg == msg2 {
-		log.Infof("action: apuesta_enviada | result: success | dni: %s | numero: %s",
-			os.Getenv(ENV_DOCUMENTO),
-			os.Getenv(ENV_NUMERO),
-		)
-	}
+	log.Infof("action: apuesta_enviada | result: success | dni: %s | numero: %s",
+		os.Getenv(ENV_DOCUMENTO),
+		os.Getenv(ENV_NUMERO),
+	)
 }
 
-func (c *Client) createMessageFromEnvVars() Message {
-	nombre := os.Getenv(ENV_NOMBRE)
-	apellido := os.Getenv(ENV_APELLIDO)
-	dni := os.Getenv(ENV_DOCUMENTO)
-	nacimiento := os.Getenv(ENV_NACIMIENTO)
-	numero := os.Getenv(ENV_NUMERO)
-	msg := fmt.Sprintf("%s,%s,%s,%s,%s",
-		nombre, apellido, dni, nacimiento, numero)
-	log.Debugf("action: create_message | result: success | msg: %s", msg)
-	return StringMessage{Value: msg}
+// sendBatchedData Reads the data file `/data/agency-<client_id>` and sends its content in batches
+// of size `c.config.MaxBatchSize`. If an error occurs while sending a batch, it logs the error
+// and returns true to indicate that the calling function should return immediately.
+// If all data is sent successfully, it returns false.
+func (c *Client) sendBatchedData() bool {
+	filePath := fmt.Sprintf("/data/agency-%s", c.config.ID)
+	file, err := os.Open(filePath)
+	if err != nil {
+		log.Errorf("action: open_file | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return true
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	batch := []string{}
+	batchSize := 0
+	for scanner.Scan() {
+		if batchSize >= c.config.MaxBatchSize {
+			msg := StringListMessage{Values: batch}
+			err := SendMessage(c.conn, msg)
+			if err != nil {
+				log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
+					c.config.ID,
+					err,
+				)
+				return true
+			}
+			batch = nil
+			batchSize = 0
+		}
+		line := scanner.Text()
+		batch = append(batch, line)
+		batchSize++
+	}
+	if batchSize > 0 {
+		msg := StringListMessage{Values: batch}
+		err := SendMessage(c.conn, msg)
+		if err != nil {
+			log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
+				c.config.ID,
+				err,
+			)
+			return true
+		}
+	}
+	return false
 }
