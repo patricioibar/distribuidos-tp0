@@ -86,37 +86,53 @@ func (c *Client) StartClientLoop() {
 	c.createClientSocket()
 	defer c.conn.Close()
 
-	msg := fmt.Sprintf("%s,%s", MSG_LOAD_BATCHES, c.config.ID)
-	err := SendMessage(c.conn, StringMessage{Value: msg})
-	if err != nil {
-		if !c.running {
-			return
-		}
-		log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
-			c.config.ID,
-			err,
-		)
-		return
-	}
-
-	shouldReturn := c.sendBatchedData()
+	shouldReturn := sendLoadBatchesRequest(c)
 	if shouldReturn {
 		return
 	}
 
-	err = SendMessage(c.conn, StringMessage{Value: MSG_END})
+	shouldReturn = c.sendBatchedData()
+	if shouldReturn {
+		return
+	}
+
+	shouldReturn = c.sendEndMessage()
+	if shouldReturn {
+		return
+	}
+
+	log.Infof("action: apuestas_enviadas | result: success")
+}
+
+func (c *Client) sendEndMessage() bool {
+	err := SendMessage(c.conn, StringMessage{Value: MSG_END})
 	if err != nil {
 		if !c.running {
-			return
+			return true
 		}
 		log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
 			c.config.ID,
 			err,
 		)
-		return
+		return true
 	}
+	return false
+}
 
-	log.Infof("action: apuestas_enviadas | result: success")
+func sendLoadBatchesRequest(c *Client) bool {
+	msg := fmt.Sprintf("%s,%s", MSG_LOAD_BATCHES, c.config.ID)
+	err := SendMessage(c.conn, StringMessage{Value: msg})
+	if err != nil {
+		if !c.running {
+			return true
+		}
+		log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
+		return true
+	}
+	return false
 }
 
 // sendBatchedData Reads the data file `/data/agency-<client_id>` and sends its content in batches
