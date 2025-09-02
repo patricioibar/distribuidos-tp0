@@ -153,11 +153,6 @@ Fuera del protocolo de comunicación, la principal funcionalidad del cliente par
 
 El comportamiento del cliente es sencillo. Simplemente lee el archivo línea a línea, agrupándolas secuencialmente de a batches con el tamaño máximo definido por el parámetro de configuración `MaxBatchSize`. Si se llena un batch con el tamaño máximo, se envía al servidor y se continúa leyendo el archivo. Si se termina de leer el archivo, se envía el batch hasta donde se llenó y luego se envía un mensaje `END`.
 
-### Tests y Problemas Conocidos
-Al momento en que se hace el commit con esta documentación, el sistema algunas veces pasa los tests exitosamente, y otras veces los tests quedan en espera o "colgados" luego de imprimir todos los logs correctamente. Si se hace `docker compose down` de manera externa el test pasa correctamente.
-
-Este error se menciona en [discusiones del campus](https://campusgrado.fi.uba.ar/mod/forum/discuss.php?d=35443) y hay un [pull request de Máximo Gismondi](https://github.com/7574-sistemas-distribuidos/tp0-tests/pull/7) solucionando este error de los tests. Utilizando los tests corregidos provistos por dicho pull request, el programa pasa los tests de forma determinística.
-
 ## Ejercicio 7
 Para este ejercicio acabé implementando dos soluciones. La solución subida actualmente es la final, pero explicaré ambas.
 
