@@ -1,15 +1,16 @@
 import socket
 import logging
 import signal
+import threading
 from .communication import ProtocolMessage
 from .utils import Bet, has_won, load_bets, store_bets
 
 MSG_END = "END"
 MSG_LOTERY_IN_PROGRESS = "LOTERY_IN_PROGRESS"
 REQUEST_HANDLERS = {
-    "LOAD_BATCHES": lambda server, agency: server._load_batches_request(agency),
-    "ALL_BETS_SENT": lambda server, agency: server._agency_done_submitting(agency),
-    "RESULTS_REQUEST": lambda server, agency: server._send_results_to(agency),
+    "LOAD_BATCHES": lambda server, agency, sock: server._load_batches_request(agency, sock),
+    "ALL_BETS_SENT": lambda server, agency, sock: server._agency_done_submitting(agency),
+    "RESULTS_REQUEST": lambda server, agency, sock: server._send_results_to(agency, sock),
 }
 
 class Server:
@@ -18,12 +19,14 @@ class Server:
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
-        self._current_client_socket = None
         self.running = False
         
         self._total_agencies = total_agencies
         self._agencies_done_submitting = set()
         self._lottery_completed = False
+        
+        self._current_client_sockets = set()
+        self._store_bets_lock = threading.Lock()
 
 
     def run(self):
@@ -40,20 +43,20 @@ class Server:
 
         while self.running:
             self.__accept_new_connection()
-            self.__handle_client_connection()
 
-    def __handle_client_connection(self):
+    def __handle_client_connection(self, sock: socket):
         """
         Read message from a specific client socket and closes the socket
 
         If a problem arises in the communication with the client, the
         client socket will also be closed
+        
+        This function is intended to run in a separate thread
+        for each client connection
         """
-        if self._current_client_socket is None:
-            return
         
         try:
-            msg = ProtocolMessage.new_from_sock(self._current_client_socket)
+            msg = ProtocolMessage.new_from_sock(sock)
             if type(msg) is not str:
                 raise ValueError("Invalid message type received for request")
             request, agency = msg.split(',')
@@ -61,14 +64,16 @@ class Server:
             if REQUEST_HANDLERS.get(request) is None:
                 raise ValueError(f"Unknown request type: {request}")
             
-            REQUEST_HANDLERS[request](self, agency)
+            REQUEST_HANDLERS[request](self, agency, sock)
             
         except Exception as e:
             if not self.running:
                 return
             logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
-            self.__close_client_socket()
+            self._current_client_sockets.remove(sock)
+            sock.close()
+                
 
     def __accept_new_connection(self):
         """
@@ -83,7 +88,8 @@ class Server:
         try: 
             c, addr = self._server_socket.accept()
             logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
-            self._current_client_socket = c
+            self._current_client_sockets.add(c)
+            threading.Thread(target=self.__handle_client_connection, args=(c,)).start()
         except OSError as e:
             if self.running:
                 logging.error(f"action: accept_connections | result: fail | error: {e}")
@@ -97,16 +103,18 @@ class Server:
         self.running = False
         self._server_socket.close()
         logging.info("action: server_socket_closed | result: success")
-        self.__close_client_socket()
+        self.__close_client_sockets()
 
-    def __close_client_socket(self):
-        if self._current_client_socket is None:
-            return
-        self._current_client_socket.close()
-        self._current_client_socket = None
-        logging.info("action: client_socket_closed | result: success")
-            
-    def _load_batches_request(self, agency: str):
+    def __close_client_sockets(self):
+        for sock in self._current_client_sockets:
+            try:
+                sock.close()
+            except Exception as e:
+                logging.error(f"action: client_socket_close | result: fail | error: {e}")
+        self._current_client_sockets.clear()
+        logging.info("action: client_sockets_closed | result: success")
+
+    def _load_batches_request(self, agency: str, sock: socket):
         """
         Handle LOAD_BATCHES request from client
         
@@ -118,7 +126,7 @@ class Server:
         total_bets = 0
         try:
             while True:
-                msg = ProtocolMessage.new_from_sock(self._current_client_socket)
+                msg = ProtocolMessage.new_from_sock(sock)
                 if type(msg) is not list:
                     if msg == MSG_END:
                         return
@@ -127,7 +135,10 @@ class Server:
                 
                 bets = [Bet.from_string(agency, bet_str) for bet_str in msg]
                 total_bets += len(bets)
-                store_bets(bets)
+                
+                with self._store_bets_lock:
+                    store_bets(bets)
+                
                 logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
             
         except Exception as e:
@@ -158,7 +169,7 @@ class Server:
             self._lottery_completed = True
             logging.info("action: sorteo | result: success")
 
-    def _send_results_to(self, agency: str):
+    def _send_results_to(self, agency: str, sock: socket):
         """
         Handle RESULTS_REQUEST from client
         
@@ -178,7 +189,7 @@ class Server:
         try:
             if not self._lottery_completed:
                 ProtocolMessage.send_string_to_sock(
-                    self._current_client_socket,
+                    sock,
                     MSG_LOTERY_IN_PROGRESS
                     )
                 return
@@ -188,7 +199,7 @@ class Server:
                 if bet.agency == agency_num and has_won(bet):
                     winning_bets.append(bet.document)
 
-            ProtocolMessage.send_string_list_to_sock(self._current_client_socket, winning_bets)
+            ProtocolMessage.send_string_list_to_sock(sock, winning_bets)
             logging.info(f"action: enviar_resultados | result: success | agencia: {agency}")
             
         except Exception as e:
