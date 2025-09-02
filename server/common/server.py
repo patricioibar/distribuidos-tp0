@@ -97,16 +97,16 @@ class Server:
                 msg = ProtocolMessage.new_from_sock(self._client_socket)
                 if type(msg) is not list:
                     if msg == MSG_END:
+                        logging.info(f"action: apuesta_recibida | result: success | cantidad: {total_bets}")
                         break
                     else:
                         raise ValueError("Invalid message type received for bets batch")
                 
-                bets = [Bet.from_string(agency, bet_str) for bet_str in msg.value]
+                bets = [Bet.from_string(agency, bet_str) for bet_str in msg]
                 total_bets += len(bets)
                 store_bets(bets)
             
-        except Exception:
+        except Exception as e:
             logging.error(f"action: apuesta_recibida | result: fail | cantidad: {total_bets}")
+            logging.error(f"{e}")
             return
-        finally:
-            logging.info(f"action: apuesta_recibida | result: success | cantidad: {total_bets}")

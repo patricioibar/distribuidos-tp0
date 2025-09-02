@@ -125,7 +125,7 @@ func (c *Client) StartClientLoop() {
 // and returns true to indicate that the calling function should return immediately.
 // If all data is sent successfully, it returns false.
 func (c *Client) sendBatchedData() bool {
-	filePath := fmt.Sprintf("/data/agency-%s", c.config.ID)
+	filePath := fmt.Sprintf("./data/agency-%s.csv", c.config.ID)
 	file, err := os.Open(filePath)
 	if err != nil {
 		log.Errorf("action: open_file | result: fail | client_id: %v | error: %v", c.config.ID, err)
