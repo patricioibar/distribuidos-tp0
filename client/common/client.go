@@ -103,12 +103,18 @@ func (c *Client) StartClientLoop() {
 		return
 	}
 
+	c.conn.Close()
+	c.createClientSocket()
+
 	shouldReturn = c.sendAllBetsSentNotification()
 	if shouldReturn {
 		return
 	}
 
 	log.Infof("action: apuestas_enviadas | result: success")
+
+	c.conn.Close()
+	c.createClientSocket()
 
 	shouldReturn = c.askForResults()
 	if shouldReturn {
