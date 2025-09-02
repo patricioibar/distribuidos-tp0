@@ -49,7 +49,7 @@ class Server:
                 return
             logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
-            self._client_socket.close()
+            self.__close_client_socket()
 
     def __accept_new_connection(self):
         """
@@ -78,6 +78,11 @@ class Server:
         self.running = False
         self._server_socket.close()
         logging.info("action: server_socket_closed | result: success")
-        if self._client_socket is not None:
-            self._client_socket.close()
-            logging.info("action: client_socket_closed | result: success")
+        self.__close_client_socket()
+
+    def __close_client_socket(self):
+        if self._client_socket is None:
+            return
+        self._client_socket.close()
+        self._client_socket = None
+        logging.info("action: client_socket_closed | result: success")
