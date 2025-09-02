@@ -2,12 +2,12 @@ def generar_compose(nombre_archivo, cantidad):
     with open(nombre_archivo, 'w') as archivo:
         archivo.write("name: tp0\n")
         archivo.write("services:\n")
-        escribir_servidor(archivo)
+        escribir_servidor(archivo, cantidad)
         for i in range(1, cantidad + 1):
             escribir_cliente(archivo, i)
         escribir_network(archivo)
 
-def escribir_servidor(archivo):
+def escribir_servidor(archivo, numero):
     archivo.write(
         "  server:\n"
         "    container_name: server\n"
@@ -15,6 +15,7 @@ def escribir_servidor(archivo):
         "    entrypoint: python3 /main.py\n"
         "    environment:\n"
         "      - PYTHONUNBUFFERED=1\n"
+        f"      - TOTAL_AGENCIES={numero}\n"
         "    networks:\n"
         "      - testing_net\n"
         "    volumes:\n"
