@@ -27,6 +27,7 @@ class Server:
         
         self._current_client_sockets = set()
         self._store_bets_lock = threading.Lock()
+        self._done_writting_data_for_agency = {}
 
 
     def run(self):
@@ -128,6 +129,7 @@ class Server:
         the error and return.
         """
         total_bets = 0
+        self._done_writting_data_for_agency[agency] = threading.Event()
         try:
             while True:
                 msg = ProtocolMessage.new_from_sock(sock)
@@ -148,6 +150,9 @@ class Server:
         except Exception as e:
             logging.error(f"action: apuesta_recibida | result: fail | cantidad: {total_bets}")
             logging.error(f"{e}")
+        
+        finally:
+            self._done_writting_data_for_agency[agency].set()
             
     def _agency_done_submitting(self, agency: str):
         """
@@ -166,6 +171,7 @@ class Server:
             logging.error(f"action: agency_done_submitting | result: fail | agencia: {agency}")
             return
         
+        self._done_writting_data_for_agency[agency].wait()
         self._agencies_done_submitting.add(agency_num)
         logging.info(f"action: agency_done_submitting | result: success | agencia: {agency}")
 
