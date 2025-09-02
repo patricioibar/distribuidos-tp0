@@ -99,10 +99,6 @@ class Server:
         self._server_socket.close()
         logging.info("action: server_socket_closed | result: success")
         self.__close_client_socket()
-        
-        self._client_done_submitting.put(None)
-        for q in self._lottery_completed:
-            q.put(False)
 
     def __close_client_socket(self):
         if self._current_client_socket is None:
