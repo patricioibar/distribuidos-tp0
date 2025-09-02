@@ -19,6 +19,8 @@ const ENV_APELLIDO = "APELLIDO"
 const ENV_DOCUMENTO = "DOCUMENTO"
 const ENV_NACIMIENTO = "NACIMIENTO"
 const ENV_NUMERO = "NUMERO"
+const MSG_LOAD_BATCHES = "LOAD_BATCHES"
+const MSG_END = "END"
 
 // ClientConfig Configuration used by the client
 type ClientConfig struct {
@@ -84,7 +86,8 @@ func (c *Client) StartClientLoop() {
 	c.createClientSocket()
 	defer c.conn.Close()
 
-	err := SendMessage(c.conn, StringMessage{Value: c.config.ID})
+	msg := fmt.Sprintf("%s,%s", MSG_LOAD_BATCHES, c.config.ID)
+	err := SendMessage(c.conn, StringMessage{Value: msg})
 	if err != nil {
 		if !c.running {
 			return
@@ -98,6 +101,19 @@ func (c *Client) StartClientLoop() {
 
 	shouldReturn := c.sendBatchedData()
 	if shouldReturn {
+		return
+	}
+
+	msg = fmt.Sprintf("%s,%s", MSG_END, c.config.ID)
+	err = SendMessage(c.conn, StringMessage{Value: msg})
+	if err != nil {
+		if !c.running {
+			return
+		}
+		log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
 		return
 	}
 
