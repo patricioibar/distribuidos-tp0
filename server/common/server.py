@@ -96,6 +96,14 @@ class Server:
         logging.info("action: client_socket_closed | result: success")
             
     def _load_batches_request(self, agency: str):
+        """
+        Handle LOAD_BATCHES request from client
+        
+        Function that handles the LOAD_BATCHES request from a client.
+        It will keep receiving batches of bets until an END message is
+        received. If any error occurs during the process, it will log
+        the error and return.
+        """
         total_bets = 0
         try:
             while True:
