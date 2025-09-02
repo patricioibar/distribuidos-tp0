@@ -21,6 +21,8 @@ const ENV_NACIMIENTO = "NACIMIENTO"
 const ENV_NUMERO = "NUMERO"
 const MSG_LOAD_BATCHES = "LOAD_BATCHES"
 const MSG_END = "END"
+const MSG_ALL_BETS_SENT = "ALL_BETS_SENT"
+const MSG_RESULTS_REQUEST = "RESULTS_REQUEST"
 
 // ClientConfig Configuration used by the client
 type ClientConfig struct {
@@ -101,7 +103,54 @@ func (c *Client) StartClientLoop() {
 		return
 	}
 
+	shouldReturn = c.sendAllBetsSentNotification()
+	if shouldReturn {
+		return
+	}
+
 	log.Infof("action: apuestas_enviadas | result: success")
+
+	shouldReturn = c.askForResults()
+	if shouldReturn {
+		return
+	}
+
+	winners, shouldReturn := c.receiveResults()
+	if shouldReturn {
+		return
+	}
+
+	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %d", len(winners))
+}
+
+func (c *Client) receiveResults() ([]string, bool) {
+	msg, err := ReceiveMessage(c.conn)
+	if err != nil {
+		if !c.running {
+			return nil, true
+		}
+		log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
+		return nil, true
+	}
+	stringListMsg, ok := msg.(StringListMessage)
+	if !ok {
+		log.Errorf("action: receive_results | result: fail | client_id: %v | error: invalid message type", c.config.ID)
+		return nil, true
+	}
+	return stringListMsg.Values, false
+}
+
+func (c *Client) askForResults() bool {
+	msg := fmt.Sprintf("%s,%s", MSG_RESULTS_REQUEST, c.config.ID)
+	return c.sendMessage(msg)
+}
+
+func (c *Client) sendAllBetsSentNotification() bool {
+	msg := fmt.Sprintf("%s,%s", MSG_ALL_BETS_SENT, c.config.ID)
+	return c.sendMessage(msg)
 }
 
 func (c *Client) sendEndMessage() bool {
