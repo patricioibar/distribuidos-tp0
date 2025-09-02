@@ -117,23 +117,7 @@ func (c *Client) StartClientLoop() {
 		return
 	}
 
-	_, err2 := ReceiveMessage(c.conn)
-
-	if err2 != nil {
-		if !c.running {
-			return
-		}
-		log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
-			c.config.ID,
-			err2,
-		)
-		return
-	}
-
-	log.Infof("action: apuesta_enviada | result: success | dni: %s | numero: %s",
-		os.Getenv(ENV_DOCUMENTO),
-		os.Getenv(ENV_NUMERO),
-	)
+	log.Infof("action: apuestas_enviadas | result: success")
 }
 
 // sendBatchedData Reads the data file `/data/agency-<client_id>` and sends its content in batches
