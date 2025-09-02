@@ -6,7 +6,7 @@ from .utils import Bet, store_bets
 
 MSG_END = "END"
 REQUEST_HANDLERS = {
-    "LOAD_BATCHES": lambda server, agency: server.__load_batches_request(agency),
+    "LOAD_BATCHES": lambda server, agency: server._load_batches_request(agency),
 }
 
 class Server:
@@ -90,7 +90,7 @@ class Server:
             self._client_socket.close()
             logging.info("action: client_socket_closed | result: success")
             
-    def __load_batches_request(self, agency: str):
+    def _load_batches_request(self, agency: str):
         total_bets = 0
         try:
             msg = ProtocolMessage.new_from_sock(self._client_socket)
