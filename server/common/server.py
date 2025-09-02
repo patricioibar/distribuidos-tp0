@@ -93,18 +93,20 @@ class Server:
     def _load_batches_request(self, agency: str):
         total_bets = 0
         try:
-            msg = ProtocolMessage.new_from_sock(self._client_socket)
-            if type(msg) is not list:
-                if msg == MSG_END:
-                    return
-                else:
-                    raise ValueError("Invalid message type received for bets batch")
-            
-            bets = [Bet.from_string(agency, bet_str) for bet_str in msg.value]
-            total_bets += len(bets)
-            store_bets(bets)
+            while True:
+                msg = ProtocolMessage.new_from_sock(self._client_socket)
+                if type(msg) is not list:
+                    if msg == MSG_END:
+                        break
+                    else:
+                        raise ValueError("Invalid message type received for bets batch")
+                
+                bets = [Bet.from_string(agency, bet_str) for bet_str in msg.value]
+                total_bets += len(bets)
+                store_bets(bets)
             
         except Exception:
-            logging.error(f"action: apuesta_recibida | result: fail | cantidad: ${total_bets}")
+            logging.error(f"action: apuesta_recibida | result: fail | cantidad: {total_bets}")
+            return
         finally:
             logging.info(f"action: apuesta_recibida | result: success | cantidad: {total_bets}")
