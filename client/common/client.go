@@ -86,7 +86,7 @@ func (c *Client) StartClientLoop() {
 	c.createClientSocket()
 	defer c.conn.Close()
 
-	shouldReturn := sendLoadBatchesRequest(c)
+	shouldReturn := c.sendLoadBatchesRequest()
 	if shouldReturn {
 		return
 	}
@@ -105,22 +105,14 @@ func (c *Client) StartClientLoop() {
 }
 
 func (c *Client) sendEndMessage() bool {
-	err := SendMessage(c.conn, StringMessage{Value: MSG_END})
-	if err != nil {
-		if !c.running {
-			return true
-		}
-		log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
-			c.config.ID,
-			err,
-		)
-		return true
-	}
-	return false
+	return c.sendMessage(MSG_END)
 }
 
-func sendLoadBatchesRequest(c *Client) bool {
+func (c *Client) sendLoadBatchesRequest() bool {
 	msg := fmt.Sprintf("%s,%s", MSG_LOAD_BATCHES, c.config.ID)
+	return c.sendMessage(msg)
+}
+func (c *Client) sendMessage(msg string) bool {
 	err := SendMessage(c.conn, StringMessage{Value: msg})
 	if err != nil {
 		if !c.running {
