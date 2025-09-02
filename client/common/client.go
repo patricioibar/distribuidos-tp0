@@ -88,7 +88,7 @@ func (c *Client) StartClientLoop() {
 	}
 
 	c.createClientSocket()
-	defer c.conn.Close()
+	defer c.close_connection()
 
 	shouldReturn := c.sendLoadBatchesRequest()
 	if shouldReturn {
@@ -105,9 +105,6 @@ func (c *Client) StartClientLoop() {
 		return
 	}
 
-	c.conn.Close()
-	c.createClientSocket()
-
 	shouldReturn = c.sendAllBetsSentNotification()
 	if shouldReturn {
 		return
@@ -118,8 +115,6 @@ func (c *Client) StartClientLoop() {
 	var winners []string
 
 	for {
-		c.conn.Close()
-		c.createClientSocket()
 
 		shouldReturn = c.askForResults()
 		if shouldReturn {
@@ -137,6 +132,11 @@ func (c *Client) StartClientLoop() {
 	}
 
 	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %d", len(winners))
+}
+
+func (c *Client) close_connection() {
+	c.sendEndMessage()
+	c.conn.Close()
 }
 
 func (c *Client) receiveResults() ([]string, bool) {

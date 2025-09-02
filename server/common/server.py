@@ -56,15 +56,19 @@ class Server:
         """
         
         try:
-            msg = ProtocolMessage.new_from_sock(sock)
-            if type(msg) is not str:
-                raise ValueError("Invalid message type received for request")
-            request, agency = msg.split(',')
-            
-            if REQUEST_HANDLERS.get(request) is None:
-                raise ValueError(f"Unknown request type: {request}")
-            
-            REQUEST_HANDLERS[request](self, agency, sock)
+            while True:
+                msg = ProtocolMessage.new_from_sock(sock)
+                if type(msg) is not str:
+                    raise ValueError("Invalid message type received for request")
+                if msg == MSG_END:
+                    return
+                
+                request, agency = msg.split(',')
+                
+                if REQUEST_HANDLERS.get(request) is None:
+                    raise ValueError(f"Unknown request type: {request}")
+                
+                REQUEST_HANDLERS[request](self, agency, sock)
             
         except Exception as e:
             if not self.running:
