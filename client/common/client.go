@@ -23,6 +23,8 @@ const MSG_LOAD_BATCHES = "LOAD_BATCHES"
 const MSG_END = "END"
 const MSG_ALL_BETS_SENT = "ALL_BETS_SENT"
 const MSG_RESULTS_REQUEST = "RESULTS_REQUEST"
+const MSG_LOTERY_IN_PROGRESS = "LOTERY_IN_PROGRESS"
+const RESULT_REQUEST_RETRY_TIME = 3 * time.Second
 
 // ClientConfig Configuration used by the client
 type ClientConfig struct {
@@ -113,17 +115,25 @@ func (c *Client) StartClientLoop() {
 
 	log.Infof("action: apuestas_enviadas | result: success")
 
-	c.conn.Close()
-	c.createClientSocket()
+	var winners []string
 
-	shouldReturn = c.askForResults()
-	if shouldReturn {
-		return
-	}
+	for {
+		c.conn.Close()
+		c.createClientSocket()
 
-	winners, shouldReturn := c.receiveResults()
-	if shouldReturn {
-		return
+		shouldReturn = c.askForResults()
+		if shouldReturn {
+			return
+		}
+
+		winners, shouldReturn = c.receiveResults()
+		if shouldReturn {
+			return
+		}
+		if winners != nil {
+			break
+		}
+		time.Sleep(RESULT_REQUEST_RETRY_TIME)
 	}
 
 	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %d", len(winners))
@@ -143,8 +153,13 @@ func (c *Client) receiveResults() ([]string, bool) {
 	}
 	stringListMsg, ok := msg.(StringListMessage)
 	if !ok {
-		log.Errorf("action: receive_results | result: fail | client_id: %v | error: invalid message type", c.config.ID)
-		return nil, true
+		stringMsg, ok := msg.(StringMessage)
+		if ok && stringMsg.Value == MSG_LOTERY_IN_PROGRESS {
+			return nil, false
+		} else {
+			log.Errorf("action: receive_results | result: fail | client_id: %v | error: invalid message received", c.config.ID)
+			return nil, true
+		}
 	}
 	return stringListMsg.Values, false
 }

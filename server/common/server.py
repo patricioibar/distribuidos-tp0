@@ -4,13 +4,13 @@ import logging
 import signal
 from .communication import ProtocolMessage
 from .utils import Bet, has_won, load_bets, store_bets
-import threading
 
 MSG_END = "END"
+MSG_LOTERY_IN_PROGRESS = "LOTERY_IN_PROGRESS"
 REQUEST_HANDLERS = {
     "LOAD_BATCHES": lambda server, agency: server._load_batches_request(agency),
-    "ALL_BETS_SENT": lambda server, agency: server._client_done_submitting.put(agency),
-    "RESULTS_REQUEST": lambda server, agency: server._handle_request_in_thread(Server._send_results_to, agency),
+    "ALL_BETS_SENT": lambda server, agency: server._agency_done_submitting(agency),
+    "RESULTS_REQUEST": lambda server, agency: server._send_results_to(agency),
 }
 
 class Server:
@@ -23,30 +23,8 @@ class Server:
         self.running = False
         
         self._total_agencies = total_agencies
-        self._client_done_submitting = Queue()
-        self._lottery_completed = [Queue()] * total_agencies
-        self._wait_thread = threading.Thread(target=self._wait_for_all_agencies)
-        self._wait_thread.daemon = True
-        self._wait_thread.start()
-
-    def _wait_for_all_agencies(self):
-        """
-        Wait for all agencies to finish submitting their bets.
-        Once all agencies have finished submitting, notify
-        that the lottery has been completed.
-        """
-        received = set()
-        while len(received) < self._total_agencies:
-            agency_num = self._client_done_submitting.get()
-            if agency_num is None:
-                # Server is stopping
-                return
-            received.add(agency_num)
-        
-        for q in self._lottery_completed:
-            q.put(True)
-        
-        logging.info("action: sorteo | result: success")
+        self._agencies_done_submitting = set()
+        self._lottery_completed = False
 
 
     def run(self):
@@ -80,6 +58,9 @@ class Server:
             if type(msg) is not str:
                 raise ValueError("Invalid message type received for request")
             request, agency = msg.split(',')
+            
+            if REQUEST_HANDLERS.get(request) is None:
+                raise ValueError(f"Unknown request type: {request}")
             
             REQUEST_HANDLERS[request](self, agency)
             
@@ -157,12 +138,31 @@ class Server:
         except Exception as e:
             logging.error(f"action: apuesta_recibida | result: fail | cantidad: {total_bets}")
             logging.error(f"{e}")
+            
+    def _agency_done_submitting(self, agency: str):
+        """
+        Handle ALL_BETS_SENT from client
+        
+        Function that handles the ALL_BETS_SENT from a client.
+        It will add the agency to the set of agencies that have
+        finished submitting bets. If all agencies have finished,
+        it will mark the lottery as completed.
+        """
+        if self._lottery_completed:
             return
         
-    def _handle_request_in_thread(self, handler, agency):
-        thread = threading.Thread(target=handler, args=(self, agency), daemon=True)
-        thread.start()
+        agency_num = int(agency)
+        if agency_num < 1 or agency_num > self._total_agencies:
+            logging.error(f"action: agency_done_submitting | result: fail | agencia: {agency}")
+            return
         
+        self._agencies_done_submitting.add(agency_num)
+        logging.info(f"action: agency_done_submitting | result: success | agencia: {agency}")
+
+        if len(self._agencies_done_submitting) == self._total_agencies:
+            self._lottery_completed = True
+            logging.info("action: sorteo | result: success")
+
     def _send_results_to(self, agency: str):
         """
         Handle RESULTS_REQUEST from client
@@ -181,15 +181,11 @@ class Server:
             return
         
         try:
-            client_socket = self._current_client_socket
-            self._current_client_socket = None
-            if client_socket is None:
-                # Server is stopping
-                return
-            
-            completed = self._lottery_completed[agency_num-1].get()
-            if not completed:
-                # Server is stopping
+            if not self._lottery_completed:
+                ProtocolMessage.send_string_to_sock(
+                    self._current_client_socket,
+                    MSG_LOTERY_IN_PROGRESS
+                    )
                 return
 
             winning_bets = []
@@ -197,16 +193,8 @@ class Server:
                 if bet.agency == agency_num and has_won(bet):
                     winning_bets.append(bet.document)
 
-            if not winning_bets:
-                ProtocolMessage.send_string_list_to_sock(client_socket, [])
-            else:
-                ProtocolMessage.send_string_list_to_sock(client_socket, winning_bets)
-            
+            ProtocolMessage.send_string_list_to_sock(self._current_client_socket, winning_bets)
             logging.info(f"action: enviar_resultados | result: success | agencia: {agency}")
             
         except Exception as e:
             logging.error(f"action: enviar_resultados | result: fail | agencia: {agency} | error: {e}")
-
-        finally:
-            if client_socket:
-                client_socket.close()
