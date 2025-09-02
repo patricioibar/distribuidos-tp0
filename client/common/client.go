@@ -104,8 +104,7 @@ func (c *Client) StartClientLoop() {
 		return
 	}
 
-	msg = fmt.Sprintf("%s,%s", MSG_END, c.config.ID)
-	err = SendMessage(c.conn, StringMessage{Value: msg})
+	err = SendMessage(c.conn, StringMessage{Value: MSG_END})
 	if err != nil {
 		if !c.running {
 			return
