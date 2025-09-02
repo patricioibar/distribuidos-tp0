@@ -4,6 +4,11 @@ import signal
 from .communication import ProtocolMessage
 from .utils import Bet, store_bets
 
+MSG_END = "END"
+REQUEST_HANDLERS = {
+    "LOAD_BATCHES": lambda server, agency: server.__load_batches_request(agency),
+}
+
 class Server:
     def __init__(self, port, listen_backlog):
         # Initialize server socket
@@ -40,15 +45,13 @@ class Server:
             return
         
         try:
-            agency = ProtocolMessage.new_from_sock(self._client_socket)
             msg = ProtocolMessage.new_from_sock(self._client_socket)
-
-            bet = Bet.from_string(agency, msg)
-            store_bets([bet])
+            if type(msg) is not str:
+                raise ValueError("Invalid message type received for request")
+            request, agency = msg.split(',')
             
-            addr = self._client_socket.getpeername()
-            logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number} | ip: {addr[0]}')
-            ProtocolMessage.send_string_to_sock(self._client_socket, f"{msg}")
+            REQUEST_HANDLERS[request](self, agency)
+            
         except Exception as e:
             if not self.running:
                 return
@@ -86,3 +89,22 @@ class Server:
         if self._client_socket is not None:
             self._client_socket.close()
             logging.info("action: client_socket_closed | result: success")
+            
+    def __load_batches_request(self, agency: str):
+        total_bets = 0
+        try:
+            msg = ProtocolMessage.new_from_sock(self._client_socket)
+            if type(msg) is not list:
+                if msg == MSG_END:
+                    return
+                else:
+                    raise ValueError("Invalid message type received for bets batch")
+            
+            bets = [Bet.from_string(agency, bet_str) for bet_str in msg.value]
+            total_bets += len(bets)
+            store_bets(bets)
+            
+        except Exception:
+            logging.error(f"action: apuesta_recibida | result: fail | cantidad: ${total_bets}")
+        finally:
+            logging.info(f"action: apuesta_recibida | result: success | cantidad: {total_bets}")
