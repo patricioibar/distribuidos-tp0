@@ -102,3 +102,58 @@ Primero espera recibir el número de agencia, luego los datos para una apuesta. 
 Para evitar los **short reads** siempre se esperan recibir 5 bytes para el header. Luego, teniendo el largo del payload o body del mensaje, se espera recibir esa cantidad de bytes. Si no ocurre ningún error pero no se obtienen los bytes suficientes, se sigue esperando hasta obtener los indicados. Si ocurre algún error antes de obtener los bytes necesarios, se eleva ese ese error.
 
 Para evitar los **short writes** en el servidor se utiliza la función `socket.sendall` que no retorna hasta haber enviado todos los bytes indicados o hasta que ocurra un error. En el cliente no existe una función como `sendall`, por lo que si se retorna sin haber enviado los bytes indicados se continúa enviando los faltantes hasta que se logren enviar todos u ocurra un error.
+
+## Ejercicio 6
+
+### Comunicación
+
+#### String List
+Para enviar eficientemente los batches, implementé el otro tipo de mensaje en el protocolo de comunicación. Es el tipo "StringList" (código `0x02`) que , como dice su nombre, contiene una lista de strings. Ya que gracias al header se sabe la longitud del payload, decidí que el body de este tipo de mensaje esté estructurado de la siguiente manera:
+
+```
+BYTE    0      1      2      3      4      5
+        +------+------+------+------+------+----
+        | 1ST STRING LEN (N) | 1ST STRING     ...
+        +------+------+------+------+------+----
+```
+
+```
+BYTE   3+N   3+N+1  3+N+2  3+N+3  3+N+4  3+N+5
+    ----+------+------+------+------+------+----
+   ...   2ND STRING LEN (N) | 2ND STRING      ...
+    ----+------+------+------+------+------+----
+```
+
+#### Protocolo de Aplicación
+Modifiqué el protocolo de aplicación para el correcto funcionamiento del ejercicio, de paso haciéndolo más genérico y extensible.
+
+El servidor espera que al recibir una nueva conexión de un cliente, el primer mensaje sea del tipo "String" y que contenga, separados por coma, la request que se quiere hacer y el identificador de la agencia que se conecta.
+
+Para este ejercicio sólo implementé la request para cargar batches de apuestas (`LOAD_BATCHES`).
+
+Luego de recibir esta request se espera obtener una cantidad indefinida de mensajes "StringList", cada una representando un batch de apuestas. 
+
+El cliente debe especificar cuándo se detiene de enviar batches de datos utilizando un mensaje de tipo "String" que debe contener dentro el mensaje `END`.
+
+### Servidor
+Fuera del protocolo de comunicación, la principal funcionalidad del servidor para este ejercicio se encuentra en el método `_load_batches_request` del archivo `server/common/server.py`. 
+
+Al recibir cada batch simplemente se parsean los strings que contienen cada apuesta y se almacenan utilizando la función `store_bets` provista por la cátedra. Si ocurre algún error parseando alguna apuesta, se descarta el batch completo y se dejan de recibir los próximos batches. Esto podría implementarse fácilmente de otra manera, pero según mi interpretación de la consigna ese es el comportamiento esperado.
+
+El servidor muestra un log por cada batch correctamente almacenado. Nuevamente interpreté que ese es el comportamiento esperado según el enunciado y lo que esperan los tests, pero podría ser cambiado muy fácilmente.
+
+### Cliente
+El archivo CSV se inyecta al contenedor del cliente mediante **docker volumes** como se especifica en la consigna.
+
+Para procesar el archivo, utilizo el objeto `Scanner` de la librería `bufio`. Este objeto no solo facilita leer el archivo línea a línea, sino que optimiza la lectura utilizando un buffer (véase [bufio.Scanner](https://pkg.go.dev/bufio#Scanner) y [Scanner.Buffer](https://pkg.go.dev/bufio#Scanner.Buffer))
+
+Probé mediante fuerza bruta que con batches de 174 entradas no se superan los 8kiB (8*1024B) de paquete, y con 171 no se superan los 8kB (8*1000B) para los datasets provistos por la cátedra. Escogí el tamaño default del buffer arbitrariamente como **170**, ya que es redondo y porque no estaba seguro si la consigna hace referencia a 8kiB u 8kB, pero contempla ambos casos.
+
+Fuera del protocolo de comunicación, la principal funcionalidad del cliente para este ejercicio se encuentra en el método `sendBatchedData` del archivo `client/common/client.go`.
+
+El comportamiento del cliente es sencillo. Simplemente lee el archivo línea a línea, agrupándolas secuencialmente de a batches con el tamaño máximo definido por el parámetro de configuración `MaxBatchSize`. Si se llena un batch con el tamaño máximo, se envía al servidor y se continúa leyendo el archivo. Si se termina de leer el archivo, se envía el batch hasta donde se llenó y luego se envía un mensaje `END`.
+
+### Tests y Problemas Conocidos
+Al momento en que se hace el commit con esta documentación, el sistema algunas veces pasa los tests exitosamente, y otras veces los tests quedan en espera o "colgados" luego de imprimir todos los logs correctamente. Si se hace `docker compose down` de manera externa el test pasa correctamente.
+
+Este error se menciona en [discusiones del campus](https://campusgrado.fi.uba.ar/mod/forum/discuss.php?d=35443) y hay un [pull request de Máximo Gismondi](https://github.com/7574-sistemas-distribuidos/tp0-tests/pull/7) solucionando este error de los tests. Utilizando los tests corregidos provistos por dicho pull request, el programa pasa los tests de forma determinística.
