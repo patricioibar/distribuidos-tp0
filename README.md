@@ -157,3 +157,27 @@ El comportamiento del cliente es sencillo. Simplemente lee el archivo línea a l
 Al momento en que se hace el commit con esta documentación, el sistema algunas veces pasa los tests exitosamente, y otras veces los tests quedan en espera o "colgados" luego de imprimir todos los logs correctamente. Si se hace `docker compose down` de manera externa el test pasa correctamente.
 
 Este error se menciona en [discusiones del campus](https://campusgrado.fi.uba.ar/mod/forum/discuss.php?d=35443) y hay un [pull request de Máximo Gismondi](https://github.com/7574-sistemas-distribuidos/tp0-tests/pull/7) solucionando este error de los tests. Utilizando los tests corregidos provistos por dicho pull request, el programa pasa los tests de forma determinística.
+
+## Ejercicio 7
+Para este ejercicio acabé implementando dos soluciones. La solución subida actualmente es la final, pero explicaré ambas.
+
+### Primer Intento
+En la solución que implementé incialmente, la cual puede verse en commits anteriores al titulado "servidor atiende servidores secuencialmente.", el servidor mantenía las conexiones de los clientes abiertas hasta que todas las agencias acaben de subir sus apuestas. Una vez sucedido eso, el servidor respondería a todos los clientes con sus resultados.
+
+De esta manera los clientes quedaban bloqueados esperando a que estén las respuestas. Implementé esta solución inicialmente ya que me parecía preferible que los clientes hagan esto a que tengan que reintentar cada vez que pidan los resultados y aún no estén disponibles.
+
+Sin embargo, noté que esto podría considerarse "multicliente" (lo cual está reservado para el ejercicio 8) así que lo decidí replantear mi solución. Además aproveché para quitar el uso innecesario de multithreading que había hecho en esta solución.
+
+### Solución final
+En la solución final, el servidor atiende los clientes de manera secuencial. Los clientes pueden realizar una única request por "conexión". Para hacer más de una request, tendrán que reconectarse con el servidor.
+
+Las request soportadas son:
+- Subir apuestas por batches
+- Notificar que ya se subieron todos los datos
+- Solicitar los resultados del sorteo
+
+Cuando una agencia avisa que ya no subirá más datos, se toma registro para que cuando todas terminen se "haga el sorteo". 
+
+Si una agencia solicita los resultados del sorteo y estos aún no están disponibles, el servidor enviará un mensaje notificando que el sorteo aún está en curso y los clientes deberán reintentar la solicitud más tarde. El servidor notifica que el sorteo aún está en curso utilizando un mensaje de tipo String, cuyo contenido es `"LOTERY_IN_PROGRESS"`. Los clientes tienen sus reintentos configurados para ser cada 3 segundos.
+
+Si todas las agencias subieron sus apuestas, se considera que el sorteo concluyó y se comenzará a responder las consultas sobre los resultados. Cuando una agencia consulta sobre los resultados, el servidor responderá con un mensaje "StringList" conteniendo una lista de todos los DNI de los usuarios que ganaron el sorteo. Si la agencia no tuvo ningún ganador, se responderá con una lista vacía.
