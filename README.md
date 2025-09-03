@@ -159,7 +159,7 @@ El comportamiento del cliente es sencillo. Simplemente lee el archivo línea a l
 Para este ejercicio acabé implementando dos soluciones. La solución subida actualmente es la final, pero explicaré ambas.
 
 ### Primer Intento
-En la solución que implementé incialmente, la cual puede verse en commits anteriores al titulado "servidor atiende servidores secuencialmente.", el servidor mantenía las conexiones de los clientes abiertas hasta que todas las agencias acaben de subir sus apuestas. Una vez sucedido eso, el servidor respondería a todos los clientes con sus resultados.
+En la solución que implementé incialmente, la cual puede verse en commits anteriores al titulado "servidor atiende servidores secuencialmente." (tuve un error al escribir ese commit, debería ser servidor atiende clientes secuencialmente), el servidor mantenía las conexiones de los clientes abiertas hasta que todas las agencias acaben de subir sus apuestas. Una vez sucedido eso, el servidor respondería a todos los clientes con sus resultados.
 
 De esta manera los clientes quedaban bloqueados esperando a que estén las respuestas. Implementé esta solución inicialmente ya que me parecía preferible que los clientes hagan esto a que tengan que reintentar cada vez que pidan los resultados y aún no estén disponibles.
 
