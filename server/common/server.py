@@ -129,7 +129,12 @@ class Server:
         the error and return.
         """
         total_bets = 0
-        self._done_writting_data_for_agency[agency] = threading.Event()
+        if agency not in self._done_writting_data_for_agency:
+            self._done_writting_data_for_agency[agency] = [threading.Event()]
+            index = 0
+        else:
+            index = len(self._done_writting_data_for_agency[agency])
+            self._done_writting_data_for_agency[agency].append(threading.Event())
         try:
             while True:
                 msg = ProtocolMessage.new_from_sock(sock)
@@ -152,7 +157,7 @@ class Server:
             logging.error(f"{e}")
         
         finally:
-            self._done_writting_data_for_agency[agency].set()
+            self._done_writting_data_for_agency[agency][index].set()
             
     def _agency_done_submitting(self, agency: str):
         """
@@ -171,7 +176,8 @@ class Server:
             logging.error(f"action: agency_done_submitting | result: fail | agencia: {agency}")
             return
         
-        self._done_writting_data_for_agency[agency].wait()
+        for e in self._done_writting_data_for_agency[agency]:
+            e.wait()
         self._agencies_done_submitting.add(agency_num)
         logging.info(f"action: agency_done_submitting | result: success | agencia: {agency}")
 
