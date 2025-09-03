@@ -178,3 +178,31 @@ Cuando una agencia avisa que ya no subirá más datos, se toma registro para que
 Si una agencia solicita los resultados del sorteo y estos aún no están disponibles, el servidor enviará un mensaje notificando que el sorteo aún está en curso y los clientes deberán reintentar la solicitud más tarde. El servidor notifica que el sorteo aún está en curso utilizando un mensaje de tipo String, cuyo contenido es `"LOTERY_IN_PROGRESS"`. Los clientes tienen sus reintentos configurados para ser cada 3 segundos.
 
 Si todas las agencias subieron sus apuestas, se considera que el sorteo concluyó y se comenzará a responder las consultas sobre los resultados. Cuando una agencia consulta sobre los resultados, el servidor responderá con un mensaje "StringList" conteniendo una lista de todos los DNI de los usuarios que ganaron el sorteo. Si la agencia no tuvo ningún ganador, se responderá con una lista vacía.
+
+## Ejercicio 8
+Decidí implementar este ejercicio utilizando múltiples threads, usando la librería `threading` de Python.
+
+Si bien la consigna advierte tener en consideración las limitaciones de Python por su Global Interpreter Lock (GIL), éste no supone un problema para la implementación necesaria en este trabajo práctico. El GIL impide que dos threads accedan al mismo bytecode al mismo tiempo, dicho de otra forma, dos threads no pueden ejecutar las mismas líneas de código al mismo tiempo.
+
+Esto supondría un problema para tareas intensivas en procesamiento (CPU intensive). No supone problemas para tareas intensivas de entrada salida, ya que cuando los threads se bloquean a la espera de un recurso liberan el GIL y permiten que otros threads ejecuten el código.
+
+Ya que el servidor sólo realiza tareas intensivas de entrada salida (leer y escribir en archivos y sockets) y no realiza ninguna tarea intensiva en procesamiento, se puede decir que el GIL no afecatará al rendimiento del programa.
+
+### Nueva feature en clientes
+Ya que los clientes ya no deben actuar de forma colaborativa, se agregó una funcionalidad para que puedan enviar requests secuencialmente a través del mismo socket (en una misma conexión).
+
+### Error de sincronización cuando un cliente envía requests de forma paralela
+Antes de implementar que el cliente pueda enviar varias requests en una misma conexión, me encontré con una race condition: el cliente podía indicar que había terminado de subir sus apuestas cuando el servidor aún estaba recibiéndolas y guardándolas en el archivo. Esto generaba que algunas veces se pueda dar los resultados sin que estén todos las apuestas en memoria aún.
+
+Esto podría solucionarse exigiendo que el cliente no pueda hacer requests de forma paralela, y que obligatoriamente deba enviar la notificación de "todas las apuestas subidas" mediante la misma conexión en que subió los batches. Pero no me quería conformar con eso.
+
+Agregué una pequeña sincronización mediante `threading.Events`, en la cual la notificación del cliente de que "todas las apuestas fueron subidas" no se procesa hasta haber terminado de guardar en el archivo. En específico, guardo una lista de `threading.Events`, ya que se considera que el cliente podría tener múltiples conexiones subiendo múltiples flujos de batches.
+
+### Uso de archivos thread-safe
+El uso de archivos en el servidor es exclusivamente mediante la utilización de las funciones `store_bets` (escritura) y `load_bets` (lectura).
+
+Para garantizar que la escritura sea correcta, sólo debe haber un thread escribiendo en el archivo al mismo tiempo. Para esto se agregó un lock, el cual debe ser adquirido obligatoriamente antes de emplear la función `store_bets`.
+
+La correcta lectura se garantiza intrínsecamente por el diseño del protocolo. Para leer el archivo, primero se debe confirmar que no se escribirá más en él. Esto se garantiza gracias al protocolo implementado en el ejercicio 7: para poder dar resultados (que es el único momento en que se leen las apuestas guardadas) primero se debe tener la certeza que no se escribirá más en el archivo. La sincronización de la sección anterior también es necesaria para que esto se cumpla.
+
+Por otro lado, la función `load_bets` dice no ser thread-safe, pero la manera en que es utilizada garantiza que sí lo sea. Cada thread utiliza la función generadora `load_bets` una vez teniendo la certeza que no habrá más escritores, y además abriendo un nuevo file descriptor para cada thread. Esto permite que cada thread pueda realizar la lectura en forma paralela, sin conflictos y con su propio cursor.
