@@ -149,7 +149,9 @@ Para procesar el archivo, utilizo el objeto `Scanner` de la librería `bufio`. E
 
 Probé mediante fuerza bruta que con batches de 174 entradas no se superan los 8kiB (8*1024B) de paquete, y con 171 no se superan los 8kB (8*1000B) para los datasets provistos por la cátedra. Escogí el tamaño default del buffer arbitrariamente como **170**, ya que es redondo y porque no estaba seguro si la consigna hace referencia a 8kiB u 8kB, pero contempla ambos casos.
 
-Fuera del protocolo de comunicación, la principal funcionalidad del cliente para este ejercicio se encuentra en el método `sendBatchedData` del archivo `client/common/client.go`.
+Fuera del protocolo de comunicación, la principal funcionalidad del cliente para este ejercicio se encuentra en el método `sendBatchedData` del archivo `client/common/client.go`. 
+
+Sin importar como se salga de la función `sendBatchedData` (ya sea un cierre convencional, por algún error, o si se recibe una señal para concluir la ejecución del cliente), se asegura el correcto cierre del archivo con `defer file.close()`.
 
 El comportamiento del cliente es sencillo. Simplemente lee el archivo línea a línea, agrupándolas secuencialmente de a batches con el tamaño máximo definido por el parámetro de configuración `MaxBatchSize`. Si se llena un batch con el tamaño máximo, se envía al servidor y se continúa leyendo el archivo. Si se termina de leer el archivo, se envía el batch hasta donde se llenó y luego se envía un mensaje `END`.
 
