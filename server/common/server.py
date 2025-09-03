@@ -2,6 +2,8 @@ import socket
 import logging
 import signal
 import threading
+
+from .thread_pool import ThreadPool
 from .communication import ProtocolMessage
 from .utils import Bet, has_won, load_bets, store_bets
 
@@ -28,6 +30,7 @@ class Server:
         self._current_client_sockets = set()
         self._store_bets_lock = threading.Lock()
         self._done_writting_data_for_agency = {}
+        self._thread_pool = ThreadPool(num_workers=total_agencies)
 
 
     def run(self):
@@ -57,25 +60,26 @@ class Server:
         """
         
         try:
-            while True:
-                msg = ProtocolMessage.new_from_sock(sock)
-                if type(msg) is not str:
-                    raise ValueError("Invalid message type received for request")
-                if msg == MSG_END:
-                    return
-                
-                request, agency = msg.split(',')
-                
-                if REQUEST_HANDLERS.get(request) is None:
-                    raise ValueError(f"Unknown request type: {request}")
-                
-                REQUEST_HANDLERS[request](self, agency, sock)
-            
-        except Exception as e:
-            if not self.running:
+            msg = ProtocolMessage.new_from_sock(sock)
+            if type(msg) is not str:
+                raise ValueError("Invalid message type received for request")
+            if msg == MSG_END:
+                self._current_client_sockets.remove(sock)
+                sock.close()
                 return
-            logging.error(f"action: receive_message | result: fail | error: {e}")
-        finally:
+            
+            request, agency = msg.split(',')
+            
+            if REQUEST_HANDLERS.get(request) is None:
+                raise ValueError(f"Unknown request type: {request}")
+            
+            REQUEST_HANDLERS[request](self, agency, sock)
+
+            self._thread_pool.submit(self.__handle_client_connection, sock)
+
+        except Exception as e:
+            if self.running:
+                logging.error(f"action: receive_message | result: fail | error: {e}")
             self._current_client_sockets.remove(sock)
             sock.close()
                 
@@ -94,7 +98,7 @@ class Server:
             c, addr = self._server_socket.accept()
             logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
             self._current_client_sockets.add(c)
-            threading.Thread(target=self.__handle_client_connection, args=(c,)).start()
+            self._thread_pool.submit(self.__handle_client_connection, c)
         except OSError as e:
             if self.running:
                 logging.error(f"action: accept_connections | result: fail | error: {e}")
@@ -109,6 +113,7 @@ class Server:
         self._server_socket.close()
         logging.info("action: server_socket_closed | result: success")
         self.__close_client_sockets()
+        self._thread_pool.stop()
 
     def __close_client_sockets(self):
         for sock in self._current_client_sockets:

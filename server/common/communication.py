@@ -24,10 +24,12 @@ TYPE_TO_CONSTRUCTOR = {
 HEADER_SIZE = 5 # 1 byte for type + 4 bytes for length
 TYPE_STRING = b'\x01'
 TYPE_STRING_LIST = b'\x02'
+MSG_TIMEOUT = 5
 
 class ProtocolMessage:
     @staticmethod
     def new_from_sock(sock: socket):
+        sock.settimeout(MSG_TIMEOUT)
         header = sock.recv(HEADER_SIZE)
         if len(header) < HEADER_SIZE:
             raise ConnectionError("Connection closed by the other side")
