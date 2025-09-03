@@ -180,8 +180,12 @@ Si una agencia solicita los resultados del sorteo y estos aún no están disponi
 Si todas las agencias subieron sus apuestas, se considera que el sorteo concluyó y se comenzará a responder las consultas sobre los resultados. Cuando una agencia consulta sobre los resultados, el servidor responderá con un mensaje "StringList" conteniendo una lista de todos los DNI de los usuarios que ganaron el sorteo. Si la agencia no tuvo ningún ganador, se responderá con una lista vacía.
 
 ## Ejercicio 8
-Decidí implementar este ejercicio utilizando múltiples threads, usando la librería `threading` de Python.
+Decidí implementar este ejercicio utilizando múltiples threads, usando la librería `threading` de Python. 
 
+En particular, utilizo un **thread pool** con tantos workers como agencias. Implementé un sistema de thread pool sencillo en `server/common/thread_pool.py`. Se envía una tarea al thread pool por cada request que vaya a hacer un cliente, esto es, cuando se acepta una nueva conexión y luego de terminar de manejar una request de un cliente.
+
+
+### Global Interpreter Lock
 Si bien la consigna advierte tener en consideración las limitaciones de Python por su Global Interpreter Lock (GIL), éste no supone un problema para la implementación necesaria en este trabajo práctico. El GIL impide que dos threads accedan al mismo bytecode al mismo tiempo, dicho de otra forma, dos threads no pueden ejecutar las mismas líneas de código al mismo tiempo.
 
 Esto supondría un problema para tareas intensivas en procesamiento (CPU intensive). No supone problemas para tareas intensivas de entrada salida, ya que cuando los threads se bloquean a la espera de un recurso liberan el GIL y permiten que otros threads ejecuten el código.
@@ -206,3 +210,16 @@ Para garantizar que la escritura sea correcta, sólo debe haber un thread escrib
 La correcta lectura se garantiza intrínsecamente por el diseño del protocolo. Para leer el archivo, primero se debe confirmar que no se escribirá más en él. Esto se garantiza gracias al protocolo implementado en el ejercicio 7: para poder dar resultados (que es el único momento en que se leen las apuestas guardadas) primero se debe tener la certeza que no se escribirá más en el archivo. La sincronización de la sección anterior también es necesaria para que esto se cumpla.
 
 Por otro lado, la función `load_bets` dice no ser thread-safe, pero la manera en que es utilizada garantiza que sí lo sea. Cada thread utiliza la función generadora `load_bets` una vez teniendo la certeza que no habrá más escritores, y además abriendo un nuevo file descriptor para cada thread. Esto permite que cada thread pueda realizar la lectura en forma paralela, sin conflictos y con su propio cursor.
+
+### Thread pool y ataques DoS
+Decidí implementar la estrategia del thread pool después de lo charlado en la clase del 02/09. Si bien este trabajo práctico es sencillo y trabaja con un sistema muy limitado, pensé en que no sería muy dificil de implementar así que lo hice. La implementación anterior (sin el threadpool y spawneando un thread por cliente) puede verse antes del commit llamado "using threadpool instead of spawning threads".
+
+Utilizar un thread pool supone una mejoría que spawnear threads por cada nueva conexión. Esto se debe a que limita la cantidad de threads que se crean, reduciendo el overhead tanto de tiempo como de espacio que producen. 
+
+En principio en la clase conversábamos que esto dificulta los ataques DoS, ya que no se podría forzar al servidor a consumir toda su memoria creando muchas conexiones. 
+
+Pero la utilización de un thread pool trae otro problema: la cantidad de clientes manejados de forma paralela se ve limitada por la cantidad de workers en el pool. Esto significa que un atacante podría abrir tantas conexiones como workers en el pool y nunca hacer ninguna request, dejando bloqueado el servicio. 
+
+Para intentar prevenir esto, agregué un timeout a la hora de esperar mensajes del cliente. Si no envía ningún mensaje pasado el timeout, se dropea la conexión y se pasa al siguiente cliente. Si bien esto no es suficiente (pues un atacante podría continuar creando muchísimas conexiones), considero que podría ser una posible solución.
+
+Prevenir de manera definitiva los ataques DoS no es sencillo y entiendo que no es el objetivo del trabajo práctico. Pero si se quisiera, podrían agregarse más prevenciones por ejemplo agregando sistemas de autenticación, detección de conexiones sospechosas, etc.
