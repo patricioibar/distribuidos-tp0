@@ -165,6 +165,8 @@ BYTE   3+N   3+N+1  3+N+2  3+N+3  3+N+4  3+N+5
     ----+------+------+------+------+------+----
 ```
 
+De esta manera se pueden leer todos los strings de la lista correctamente, conociendo exáctamente cuántos bytes ocupa el siguiente que se leerá, y sabiendo que inmediatamente después habrá 4 bytes indicando la longitud del próximo.
+
 #### Protocolo de Aplicación
 Modifiqué el protocolo de aplicación para el correcto funcionamiento del ejercicio, de paso haciéndolo más genérico y extensible.
 
@@ -177,21 +179,33 @@ Luego de recibir esta request se espera obtener una cantidad indefinida de mensa
 El cliente debe especificar cuándo se detiene de enviar batches de datos utilizando un mensaje de tipo "String" que debe contener dentro el mensaje `END`.
 
 ### Servidor
-Fuera del protocolo de comunicación, la principal funcionalidad del servidor para este ejercicio se encuentra en el método `_load_batches_request` del archivo `server/common/server.py`. 
+La principal funcionalidad del servidor para este ejercicio se encuentra en el método `_load_batches_request` del archivo `server/common/server.py`. 
 
-Al recibir cada batch simplemente se parsean los strings que contienen cada apuesta y se almacenan utilizando la función `store_bets` provista por la cátedra. Si ocurre algún error parseando alguna apuesta, se descarta el batch completo y se dejan de recibir los próximos batches. Esto podría implementarse fácilmente de otra manera, pero según mi interpretación de la consigna ese es el comportamiento esperado.
+Al recibir cada batch simplemente se parsean los strings que contienen cada apuesta y se almacenan utilizando la función `store_bets` provista por la cátedra. 
 
-El servidor muestra un log por cada batch correctamente almacenado. Nuevamente interpreté que ese es el comportamiento esperado según el enunciado y lo que esperan los tests, pero podría ser cambiado muy fácilmente.
+Ya que se puso la restricción de no modificar la función `store_bets`, el servidor abre y cierra el archivo con la llegada de cada batch. Ante un cierre por `SIGTERM`, la implementación de `store_bets` utilizando una cláusula `with` garantiza el correcto cierre del archivo.
+
+Si ocurre algún error parseando alguna apuesta del batch o al abrir el archivo: 
+- El error es logeado en consola
+- Se descarta el batch completo y se dejan de recibir los próximos batches.
+- Se cierra la conexión prematuramente con el cliente.
+Esto podría implementarse fácilmente de otra manera, pero según mi interpretación de la consigna ese es el comportamiento esperado.
+
+El servidor muestra un log por cada batch correctamente almacenado, mostrando la cantidad de apuestas que contenía. Nuevamente interpreté que ese es el comportamiento esperado según el enunciado ya que es lo que esperan los tests, pero podría ser cambiado muy fácilmente.
 
 ### Cliente
 El archivo CSV se inyecta al contenedor del cliente mediante **docker volumes** como se especifica en la consigna.
 
 Para procesar el archivo, utilizo el objeto `Scanner` de la librería `bufio`. Este objeto no solo facilita leer el archivo línea a línea, sino que optimiza la lectura utilizando un buffer (véase [bufio.Scanner](https://pkg.go.dev/bufio#Scanner) y [Scanner.Buffer](https://pkg.go.dev/bufio#Scanner.Buffer))
 
-Probé mediante fuerza bruta que con batches de 174 entradas no se superan los 8kiB (8*1024B) de paquete, y con 171 no se superan los 8kB (8*1000B) para los datasets provistos por la cátedra. Escogí el tamaño default del buffer arbitrariamente como **170**, ya que es redondo y porque no estaba seguro si la consigna hace referencia a 8kiB u 8kB, pero contempla ambos casos.
+Fuera del protocolo de comunicación, la principal funcionalidad del cliente para este ejercicio se encuentra en el método `sendBatchedData` dentro del archivo `client/common/client.go`. 
 
-Fuera del protocolo de comunicación, la principal funcionalidad del cliente para este ejercicio se encuentra en el método `sendBatchedData` del archivo `client/common/client.go`. 
+Sin importar como se salga de la función `sendBatchedData` (ya sea un cierre convencional, por algún error, o si se recibe una señal para concluir la ejecución del cliente), se asegura el correcto cierre del archivo con `defer file.close()`. Ídem con el socket de conexión, pero dentro del método `StartClientLoop`.
 
-Sin importar como se salga de la función `sendBatchedData` (ya sea un cierre convencional, por algún error, o si se recibe una señal para concluir la ejecución del cliente), se asegura el correcto cierre del archivo con `defer file.close()`.
+El comportamiento del cliente es sencillo. Simplemente lee el archivo línea a línea, agrupándolas secuencialmente de a batches según el tamaño máximo definido por el parámetro de configuración `batch: maxAmount`. Si se llena un batch con el tamaño máximo, se envía al servidor y se continúa leyendo el archivo. Si se termina de leer el archivo, se envía el batch hasta donde se llenó y luego se envía un mensaje `END`.
 
-El comportamiento del cliente es sencillo. Simplemente lee el archivo línea a línea, agrupándolas secuencialmente de a batches con el tamaño máximo definido por el parámetro de configuración `MaxBatchSize`. Si se llena un batch con el tamaño máximo, se envía al servidor y se continúa leyendo el archivo. Si se termina de leer el archivo, se envía el batch hasta donde se llenó y luego se envía un mensaje `END`.
+#### Tamaño de los batches
+
+Probé mediante fuerza bruta (utilizando `batch-size-checker.py`) que con batches de 174 entradas no se superan los 8kiB (8*1024B) de paquete, y con 171 no se superan los 8kB (8*1000B) para los datasets provistos por la cátedra. Para realizar este chequeo se deben descomprimir los archivos de `.data/dataset.zip` y dejarlos dentro de la carpeta `.data/`, y luego correr el script `probe-batch-size.sh` que contiene las ejecuciones de `batch-size-checker.py` que prueban los tamaños de batch adecuados.
+
+Escogí el tamaño de los batches arbitrariamente como **170**, ya que es redondo y porque no estaba seguro si la consigna hace referencia a 8kiB u 8kB, pero se contemplan ambos casos. Esta configuración puede verse y modificarse en el archivo `client/config.yaml`.
