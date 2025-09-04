@@ -80,6 +80,8 @@ Al recibir la señal `SIGTERM`, el servidor cierra su socket de escucha para nue
 ### Cliente
 En Go, se utiliza `os.Signal` para crear un canal por el cual se transmitirán las señales, y se utiliza `signal.Notify` para determinar qué señales deben pasarse a ese canal.
 
+Decidí dejar una Go Routine en la espera de la señal, bloqueada en el canal creado. Preferí esto antes que utilizar una estrategia con select para aprovechar las herramientas propias del lenguaje. Las Go Routines son considerablemente más "ligeras" que un thread, y están ideadas para realizar tareas concurrentes manteniendo el modelo claro y legible.
+
 En este caso solo manejamos la señal `SIGTERM` con una función que cierra la conexión con el servidor y actualiza el estado interno `running` a falso.
 
 Se modificó el hilo principal del cliente para que se cierre agraciadamente frente a esos eventos.
