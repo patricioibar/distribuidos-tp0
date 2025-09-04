@@ -85,3 +85,8 @@ Decidí dejar una Go Routine en la espera de la señal, bloqueada en el canal cr
 En este caso solo manejamos la señal `SIGTERM` con una función que cierra la conexión con el servidor y actualiza el estado interno `running` a falso.
 
 Se modificó el hilo principal del cliente para que se cierre agraciadamente frente a esos eventos.
+
+### Ejecución
+Este ejercicio implementa el cierre agraciado de los procesos. Para ejecutarlo, se debe primero iniciar los contenedores del Docker Compose para que realicen la ejecución normal (por ejemplo, utilizando `make docker-compose-up`) y luego cerrarse utilizando el parámetro `-t` al hacer `docker compose down`, para que se envíe la señal `SIGTERM` a los servicios del compose. 
+
+`make docker-compose-down` está configurado para utilizar dicho parámetro.
