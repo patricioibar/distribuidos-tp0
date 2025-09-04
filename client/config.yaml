@@ -7,3 +7,5 @@ log:
   level: "INFO"
 batch:
   maxAmount: 170
+results:
+  retryPeriod: "3s"

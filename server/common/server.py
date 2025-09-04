@@ -22,6 +22,7 @@ class Server:
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self.running = False
+        signal.signal(signal.SIGTERM, lambda _signum, _frame: self.stop())
         
         self._total_agencies = total_agencies
         self._agencies_done_submitting = set()
@@ -43,7 +44,6 @@ class Server:
         """
 
         self.running = True
-        signal.signal(signal.SIGTERM, lambda _signum, _frame: self.stop())
 
         while self.running:
             self.__accept_new_connection()
