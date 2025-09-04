@@ -22,7 +22,7 @@ Para resolverlo, bastó con crear un volumen en cada servicio (server y client).
 
 ### Superposición entre variables de entorno y archivo de configuración
 
-Cuando corrí los tests, me encontré conq que dos de ellos fallaban por una superposición en las configuraciones: había configuraciones de log level tanto en las variables de entorno como en los archivos. Los tests fallaban porque la configuración esperada era la provista por el archivo de configuración, pero se adoptaba la provista por las variables de entorno.
+Cuando corrí los tests, me encontré con que dos de ellos fallaban por una superposición en las configuraciones: había configuraciones de log level tanto en las variables de entorno como en los archivos. Los tests fallaban porque la configuración esperada era la provista por el archivo de configuración, pero se adoptaba la provista por las variables de entorno.
 
 Para resolver esto se me ocurrieron dos formas:
 1. Hacer que se prioricen las configuraciones de los archivos sobre las de las variables de entorno.
@@ -31,6 +31,9 @@ Para resolver esto se me ocurrieron dos formas:
 Decidí tomar la segunda estrategia, ya que en las descripciones encontradas en `server/main.py` y en `client/main.go` se menciona que se priorizan las configuraciones provistas por las variables de entorno antes que las encontradas en archivos de configuración. 
 
 Para no cambiar esa decisión de diseño provista por la cátedra, adopté la segunda estrategia.
+
+### Ejecución
+Este ejercicio sólo modifica un poco el script del ejercicio anterior. Para ejecutarlo hace falta correr el script de nuevo, como se detalla en la sección de ejecución del ejercicio 1.
 
 ## Ejercicio 3
 El script creado para este ejercicio (`validar-echo-server.sh`) inicia un nuevo contenedor de Docker y lo conecta a la red virtual generada por el Docker Compose (`tp0_testing_net`). Por lo tanto, para que el script corra correctamente es condición necesaria que el servidor haya sido iniciado previamente utilizando un archivo de Docker Compose generado con el script creado en el ejercicio 1.
