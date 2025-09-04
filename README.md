@@ -225,7 +225,9 @@ De esta manera los clientes quedaban bloqueados esperando a que estén las respu
 Sin embargo, noté que esto podría considerarse "multicliente" (lo cual está reservado para el ejercicio 8) así que lo decidí replantear mi solución. Además aproveché para quitar el uso innecesario de multithreading que había hecho en esta solución.
 
 ### Solución final
-En la solución final, el servidor atiende los clientes de manera secuencial. Los clientes pueden realizar una única request por "conexión". Para hacer más de una request, tendrán que reconectarse con el servidor.
+En la solución final, el servidor atiende los clientes de manera secuencial. Los clientes pueden realizar una única request por conexión. Para hacer más de una request, tendrán que reconectarse con el servidor.
+
+De esta manera, se asume que las agencias realizarán conexiones de manera colaborativa para no saturar el servidor que atiende las conexiones de manera secuencial.
 
 Las request soportadas son:
 - Subir apuestas por batches
@@ -234,6 +236,8 @@ Las request soportadas son:
 
 Cuando una agencia avisa que ya no subirá más datos, se toma registro para que cuando todas terminen se "haga el sorteo". 
 
-Si una agencia solicita los resultados del sorteo y estos aún no están disponibles, el servidor enviará un mensaje notificando que el sorteo aún está en curso y los clientes deberán reintentar la solicitud más tarde. El servidor notifica que el sorteo aún está en curso utilizando un mensaje de tipo String, cuyo contenido es `"LOTERY_IN_PROGRESS"`. Los clientes tienen sus reintentos configurados para ser cada 3 segundos.
+Si una agencia solicita los resultados del sorteo y estos aún no están disponibles, el servidor enviará un mensaje notificando que el sorteo aún está en curso y los clientes deberán reintentar la solicitud más tarde. El servidor notifica que el sorteo aún está en curso utilizando un mensaje de tipo String, cuyo contenido es `"LOTERY_IN_PROGRESS"`. 
 
-Si todas las agencias subieron sus apuestas, se considera que el sorteo concluyó y se comenzará a responder las consultas sobre los resultados. Cuando una agencia consulta sobre los resultados, el servidor responderá con un mensaje "StringList" conteniendo una lista de todos los DNI de los usuarios que ganaron el sorteo. Si la agencia no tuvo ningún ganador, se responderá con una lista vacía.
+Los clientes tienen sus reintentos configurados para ser cada 3 segundos. Esta configuración puede verse y modificarse en el archivo `client/config.yaml` con el nombre `results:retryPeriod`.
+
+Cuando la última agencia concluye la carga de sus apuestas, se considera que el sorteo concluyó. El servidor actualizará su variable interna `_lottery_completed` y comenzará a responder las consultas sobre los resultados. A partir de ese momento cuando una agencia consulte sobre los resultados, el servidor le responde con un mensaje "StringList" conteniendo una lista de todos los DNI de los usuarios que ganaron el sorteo. Si la agencia no tuvo ningún ganador, responde con una lista vacía.
