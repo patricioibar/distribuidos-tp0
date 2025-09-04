@@ -36,10 +36,29 @@ Para no cambiar esa decisión de diseño provista por la cátedra, adopté la se
 Este ejercicio sólo modifica un poco el script del ejercicio anterior. Para ejecutarlo hace falta correr el script de nuevo, como se detalla en la sección de ejecución del ejercicio 1.
 
 ## Ejercicio 3
-El script creado para este ejercicio (`validar-echo-server.sh`) inicia un nuevo contenedor de Docker y lo conecta a la red virtual generada por el Docker Compose (`tp0_testing_net`). Por lo tanto, para que el script corra correctamente es condición necesaria que el servidor haya sido iniciado previamente utilizando un archivo de Docker Compose generado con el script creado en el ejercicio 1.
+El script creado para este ejercicio (`validar-echo-server.sh`) inicia un nuevo contenedor de Docker y lo conecta a la red virtual generada por el Docker Compose (`tp0_testing_net`). Esto se hace con el parámetro `--network=$NET_NAME` del comando `docker run`.
+
+Por lo tanto, para que el script corra correctamente es condición necesaria que el servidor haya sido iniciado previamente utilizando un archivo de Docker Compose generado con el script creado en el ejercicio 1. 
+
+### Funcionamiento del script
+A continuación una breve descripción de lo que hace el script:
 
 Primero se busca el puerto del servidor en el archivo de configuración del mismo (`server/config.ini`). 
 
 Luego valida que la red virtual esté creada, si no lo está, lo más probable es que no se haya iniciado el servidor utilizando Docker Compose. 
 
-Finalmente, se inicia un nuevo contenedor en la red virtual y se ejecuta la prueba de netcat contra el puerto encontrado y la ip `server`. Usar la palabra `server`como dirección IP es válido sólo si el servidor se inició utilizando el Docker Compose, y sirve para referenciar la IP del servicio con ese nombre dentro de la red virtual.
+Finalmente, se inicia un nuevo contenedor en la red virtual y se ejecuta la prueba de netcat contra el puerto encontrado y la ip `server`. Usar la palabra `server`como dirección IP es válido sólo si el servidor se inició utilizando el Docker Compose, y sirve para referenciar la IP del servicio con ese nombre dentro de la red virtual. Si el script falla porque la dirección `server` es unreacheable, significa que hubo un error o no se ejecutó el echo server a través de docker compose.
+
+### Ejecución
+Para ejecutar este ejercicio es estrictamente necesario ejecutar primero el servidor mediante el archivo de Docker Compose, luego se debe ejecutar el script `validar-echo-server.sh`.
+
+Un ejemplo para cómo ejecutar el ejercicio es el siguiente:
+```
+./generar_compose.sh docker-compose-dev.yaml 0
+sudo make docker-compose-up
+./validar-echo-server.sh
+```
+Luego, si no se seguirá utilizando el servidor, correr
+```
+sudo make docker-compose-up
+```
