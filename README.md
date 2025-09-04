@@ -242,6 +242,8 @@ Los clientes tienen sus reintentos configurados para ser cada 3 segundos. Esta c
 
 Cuando la última agencia concluye la carga de sus apuestas, se considera que el sorteo concluyó. El servidor actualizará su variable interna `_lottery_completed` y comenzará a responder las consultas sobre los resultados. A partir de ese momento cuando una agencia consulte sobre los resultados, el servidor le responde con un mensaje "StringList" conteniendo una lista de todos los DNI de los usuarios que ganaron el sorteo. Si la agencia no tuvo ningún ganador, responde con una lista vacía.
 
+El servidor conoce la cantidad totales de agencias que subirán las apuestas mediante la configuración `TOTAL_AGENCIES`. Como las demás configuraciones, ésta puede especificarse como variable de entorno o en el archivo `server/config.ini`. Para este caso, definí la configuración como una variable de entorno en el script generador del archivo de Docker Compose.
+
 ## Ejercicio 8
 Decidí implementar este ejercicio utilizando múltiples threads, usando la librería `threading` de Python. 
 
