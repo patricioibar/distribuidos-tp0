@@ -22,7 +22,7 @@ Para resolverlo, bastó con crear un volumen en cada servicio (server y client).
 
 ### Superposición entre variables de entorno y archivo de configuración
 
-Cuando corrí los tests, me encontré conq que dos de ellos fallaban por una superposición en las configuraciones: había configuraciones de log level tanto en las variables de entorno como en los archivos. Los tests fallaban porque la configuración esperada era la provista por el archivo de configuración, pero se adoptaba la provista por las variables de entorno.
+Cuando corrí los tests, me encontré con que dos de ellos fallaban por una superposición en las configuraciones: había configuraciones de log level tanto en las variables de entorno como en los archivos. Los tests fallaban porque la configuración esperada era la provista por el archivo de configuración, pero se adoptaba la provista por las variables de entorno.
 
 Para resolver esto se me ocurrieron dos formas:
 1. Hacer que se prioricen las configuraciones de los archivos sobre las de las variables de entorno.
@@ -32,14 +32,36 @@ Decidí tomar la segunda estrategia, ya que en las descripciones encontradas en 
 
 Para no cambiar esa decisión de diseño provista por la cátedra, adopté la segunda estrategia.
 
+### Ejecución
+Este ejercicio sólo modifica un poco el script del ejercicio anterior. Para ejecutarlo hace falta correr el script de nuevo, como se detalla en la sección de ejecución del ejercicio 1.
+
 ## Ejercicio 3
-El script creado para este ejercicio (`validar-echo-server.sh`) inicia un nuevo contenedor de Docker y lo conecta a la red virtual generada por el Docker Compose (`tp0_testing_net`). Por lo tanto, para que el script corra correctamente es condición necesaria que el servidor haya sido iniciado previamente utilizando un archivo de Docker Compose generado con el script creado en el ejercicio 1.
+El script creado para este ejercicio (`validar-echo-server.sh`) inicia un nuevo contenedor de Docker y lo conecta a la red virtual generada por el Docker Compose (`tp0_testing_net`). Esto se hace con el parámetro `--network=$NET_NAME` del comando `docker run`.
+
+Por lo tanto, para que el script corra correctamente es condición necesaria que el servidor haya sido iniciado previamente utilizando un archivo de Docker Compose generado con el script creado en el ejercicio 1. 
+
+### Funcionamiento del script
+A continuación una breve descripción de lo que hace el script:
 
 Primero se busca el puerto del servidor en el archivo de configuración del mismo (`server/config.ini`). 
 
 Luego valida que la red virtual esté creada, si no lo está, lo más probable es que no se haya iniciado el servidor utilizando Docker Compose. 
 
-Finalmente, se inicia un nuevo contenedor en la red virtual y se ejecuta la prueba de netcat contra el puerto encontrado y la ip `server`. Usar la palabra `server`como dirección IP es válido sólo si el servidor se inició utilizando el Docker Compose, y sirve para referenciar la IP del servicio con ese nombre dentro de la red virtual.
+Finalmente, se inicia un nuevo contenedor en la red virtual y se ejecuta la prueba de netcat contra el puerto encontrado y la ip `server`. Usar la palabra `server`como dirección IP es válido sólo si el servidor se inició utilizando el Docker Compose, y sirve para referenciar la IP del servicio con ese nombre dentro de la red virtual. Si el script falla porque la dirección `server` es unreacheable, significa que hubo un error o no se ejecutó el echo server a través de docker compose.
+
+### Ejecución
+Para ejecutar este ejercicio es estrictamente necesario ejecutar primero el servidor mediante el archivo de Docker Compose, luego se debe ejecutar el script `validar-echo-server.sh`.
+
+Un ejemplo para cómo ejecutar el ejercicio es el siguiente:
+```
+./generar_compose.sh docker-compose-dev.yaml 0
+sudo make docker-compose-up
+./validar-echo-server.sh
+```
+Luego, si no se seguirá utilizando el servidor, correr
+```
+sudo make docker-compose-up
+```
 
 ## Ejercicio 4
 Para la resolución de este ejercicio se agregaron funcionalidades tanto al servidor como a los clientes para ejecutar funciones determinadas al recibir una señal del tipo `SIGTERM`. 
