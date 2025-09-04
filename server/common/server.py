@@ -10,6 +10,7 @@ class Server:
         self._server_socket.listen(listen_backlog)
         self._client_socket = None
         self.running = False
+        signal.signal(signal.SIGTERM, lambda _signum, _frame: self.stop())
 
     def run(self):
         """
@@ -21,7 +22,6 @@ class Server:
         """
 
         self.running = True
-        signal.signal(signal.SIGTERM, lambda _signum, _frame: self.stop())
 
         while self.running:
             self.__accept_new_connection()
