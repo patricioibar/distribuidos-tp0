@@ -24,15 +24,15 @@ const MSG_END = "END"
 const MSG_ALL_BETS_SENT = "ALL_BETS_SENT"
 const MSG_RESULTS_REQUEST = "RESULTS_REQUEST"
 const MSG_LOTERY_IN_PROGRESS = "LOTERY_IN_PROGRESS"
-const RESULT_REQUEST_RETRY_TIME = 3 * time.Second
 
 // ClientConfig Configuration used by the client
 type ClientConfig struct {
-	ID            string
-	ServerAddress string
-	LoopAmount    int
-	LoopPeriod    time.Duration
-	MaxBatchSize  int
+	ID                 string
+	ServerAddress      string
+	LoopAmount         int
+	LoopPeriod         time.Duration
+	MaxBatchSize       int
+	ResultsRetryPeriod time.Duration
 }
 
 // Client Entity that encapsulates how
@@ -133,7 +133,7 @@ func (c *Client) StartClientLoop() {
 		if winners != nil {
 			break
 		}
-		time.Sleep(RESULT_REQUEST_RETRY_TIME)
+		time.Sleep(c.config.ResultsRetryPeriod)
 	}
 
 	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %d", len(winners))
