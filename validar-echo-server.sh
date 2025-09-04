@@ -1,0 +1,32 @@
+#!/bin/bash
+
+CONF_FILE="server/config.ini"
+NET_NAME="tp0_testing_net"
+
+if [ ! -f "$CONF_FILE" ]; then
+    echo "Error: no se encontró $CONF_FILE"
+    exit 1
+fi
+
+PORT=$(grep -E '^SERVER_PORT' "$CONF_FILE" | cut -d'=' -f2 | xargs)
+
+if [ -z "$PORT" ]; then
+  echo "Error: el archivo $CONF_FILE debe definir PORT"
+  exit 1
+fi
+
+NET_ID=$(sudo docker network ls -q -f "name=$NET_NAME")
+if [ -z "$NET_ID" ]; then
+    echo "La red $NET_NAME no existe"
+    exit 1
+fi
+
+MSG="test message"
+
+OUTPUT=$(echo "$MSG" | sudo docker run -i --rm --network=$NET_NAME busybox nc server "$PORT")
+
+if [ "$OUTPUT" = "$MSG" ]; then
+    echo "action: test_echo_server | result: success"
+else
+    echo "action: test_echo_server | result: fail"
+fi
