@@ -209,3 +209,6 @@ El comportamiento del cliente es sencillo. Simplemente lee el archivo línea a l
 Probé mediante fuerza bruta (utilizando `batch-size-checker.py`) que con batches de 174 entradas no se superan los 8kiB (8*1024B) de paquete, y con 171 no se superan los 8kB (8*1000B) para los datasets provistos por la cátedra. Para realizar este chequeo se deben descomprimir los archivos de `.data/dataset.zip` y dejarlos dentro de la carpeta `.data/`, y luego correr el script `probe-batch-size.sh` que contiene las ejecuciones de `batch-size-checker.py` que prueban los tamaños de batch adecuados.
 
 Escogí el tamaño de los batches arbitrariamente como **170**, ya que es redondo y porque no estaba seguro si la consigna hace referencia a 8kiB u 8kB, pero se contemplan ambos casos. Esta configuración puede verse y modificarse en el archivo `client/config.yaml`.
+
+### Ejecución
+Para ejecutar este ejercicio, se deben descomprimir los archivos de `.data/dataset.zip` y dejarlos dentro de la carpeta `.data/`. Luego se puede ejecutar normalmente mediante `make docker-compose-up`.
