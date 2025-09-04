@@ -251,40 +251,44 @@ En particular, utilizo un **thread pool** con tantos workers como agencias. Impl
 
 
 ### Global Interpreter Lock
-Si bien la consigna advierte tener en consideración las limitaciones de Python por su Global Interpreter Lock (GIL), éste no supone un problema para la implementación necesaria en este trabajo práctico. El GIL impide que dos threads accedan al mismo bytecode al mismo tiempo, dicho de otra forma, dos threads no pueden ejecutar las mismas líneas de código al mismo tiempo.
+Si bien la consigna advierte tener en consideración las limitaciones de Python por su Global Interpreter Lock (GIL), éste no supone un problema para la implementación necesaria de este trabajo práctico. El GIL asegura que un solo thread ejecute bytecode a la vez, dicho de otra forma, dos threads no pueden ejecutar el código del programa de Python al mismo tiempo.
 
-Esto supondría un problema para tareas intensivas en procesamiento (CPU intensive). No supone problemas para tareas intensivas de entrada salida, ya que cuando los threads se bloquean a la espera de un recurso liberan el GIL y permiten que otros threads ejecuten el código.
+Esto supondría un problema para tareas intensivas en procesamiento (CPU intensive) porque no podría haber dos threads ejecutando esa tarea paralelamente. Sin embargo, no supone problemas para tareas intensivas de entrada salida, ya que cuando los threads se bloquean a la espera de un recurso liberan el GIL y permiten que otros threads ejecuten el código.
 
 Ya que el servidor sólo realiza tareas intensivas de entrada salida (leer y escribir en archivos y sockets) y no realiza ninguna tarea intensiva en procesamiento, se puede decir que el GIL no afecatará al rendimiento del programa.
 
-### Nueva feature en clientes
-Ya que los clientes ya no deben actuar de forma colaborativa, se agregó una funcionalidad para que puedan enviar requests secuencialmente a través del mismo socket (en una misma conexión).
+### Múltiples request en una sola conexión
+Ya que los clientes ya no deben actuar de forma colaborativa porque el servidor ya no es secuencial, se agregó una funcionalidad para que puedan enviar requests secuencialmente a través del mismo socket (en una misma conexión).
 
-### Error de sincronización cuando un cliente envía requests de forma paralela
+### Error de sincronización cuando un cliente envía batches de forma paralela
 Antes de implementar que el cliente pueda enviar varias requests en una misma conexión, me encontré con una race condition: el cliente podía indicar que había terminado de subir sus apuestas cuando el servidor aún estaba recibiéndolas y guardándolas en el archivo. Esto generaba que algunas veces se pueda dar los resultados sin que estén todos las apuestas en memoria aún.
 
-Esto podría solucionarse exigiendo que el cliente no pueda hacer requests de forma paralela, y que obligatoriamente deba enviar la notificación de "todas las apuestas subidas" mediante la misma conexión en que subió los batches. Pero no me quería conformar con eso.
+Esto podría solucionarse exigiendo que el cliente no pueda subir batches en conexiones paralelas, y que obligatoriamente deba enviar la notificación de "todas las apuestas subidas" mediante la misma conexión en que subió los batches. Pero no me quería conformar con eso.
 
-Agregué una pequeña sincronización mediante `threading.Events`, en la cual la notificación del cliente de que "todas las apuestas fueron subidas" no se procesa hasta haber terminado de guardar en el archivo. En específico, guardo una lista de `threading.Events`, ya que se considera que el cliente podría tener múltiples conexiones subiendo múltiples flujos de batches.
+Agregué una pequeña sincronización mediante `threading.Events`, en la cual la notificación del cliente de que "todas las apuestas fueron subidas" no se procesa hasta haber terminado de guardar las batches que se enviaron en el archivo. En específico, guardo una lista de `threading.Events`, ya que se considera que el cliente podría tener múltiples conexiones subiendo múltiples flujos de batches.
 
 ### Uso de archivos thread-safe
-El uso de archivos en el servidor es exclusivamente mediante la utilización de las funciones `store_bets` (escritura) y `load_bets` (lectura).
+El uso de archivos en el servidor es exclusivamente mediante la utilización de las funciones `store_bets` (escritura) y `load_bets` (lectura), y se impuso la restricción de no modificarlas.
 
-Para garantizar que la escritura sea correcta, sólo debe haber un thread escribiendo en el archivo al mismo tiempo. Para esto se agregó un lock, el cual debe ser adquirido obligatoriamente antes de emplear la función `store_bets`.
+Para garantizar que la escritura sea correcta, sólo debe haber un thread escribiendo en el archivo al mismo tiempo. Para lograr esto, se agregó un lock que debe ser adquirido obligatoriamente antes de emplear la función `store_bets`.
 
-La correcta lectura se garantiza intrínsecamente por el diseño del protocolo. Para leer el archivo, primero se debe confirmar que no se escribirá más en él. Esto se garantiza gracias al protocolo implementado en el ejercicio 7: para poder dar resultados (que es el único momento en que se leen las apuestas guardadas) primero se debe tener la certeza que no se escribirá más en el archivo. La sincronización de la sección anterior también es necesaria para que esto se cumpla.
+Para garantizar que la lectura sea correcta, se debe tener la certeza que el archivo no se modifica mientras se lee. Esto es menos restrictivo que en la escritura, ya que se permiten múltiples lectores de forma simultánea. 
 
-Por otro lado, la función `load_bets` dice no ser thread-safe, pero la manera en que es utilizada garantiza que sí lo sea. Cada thread utiliza la función generadora `load_bets` una vez teniendo la certeza que no habrá más escritores, y además abriendo un nuevo file descriptor para cada thread. Esto permite que cada thread pueda realizar la lectura en forma paralela, sin conflictos y con su propio cursor.
+La correcta lectura se garantiza intrínsecamente por el diseño del protocolo. El archivo sólo se lee una vez todas las agencias hayan subido todas sus apuestas, y hayan confirmado que no subirán más. Dicho de otra forma, para leer el archivo primero se debe confirmar que no se escribirá más en él. Esto se garantiza gracias al protocolo implementado en el ejercicio 7: para poder dar resultados (que es el único momento en que se leen las apuestas guardadas) primero se debe tener la certeza que no se escribirá más en el archivo. La sincronización de la sección anterior también es necesaria para que esto se cumpla.
+
+Por otro lado, la función `load_bets` dice no ser thread-safe, pero la manera en que es utilizada garantiza que sí lo sea. Cada thread utiliza la función generadora `load_bets` teniendo la certeza que no habrá más escritores, y además abriendo un nuevo file descriptor para cada thread. Esto permite que cada thread pueda realizar la lectura en forma paralela, sin conflictos y con su propio cursor.
 
 ### Thread pool y ataques DoS
 Decidí implementar la estrategia del thread pool después de lo charlado en la clase del 02/09. Si bien este trabajo práctico es sencillo y trabaja con un sistema muy limitado, pensé en que no sería muy dificil de implementar así que lo hice. La implementación anterior (sin el threadpool y spawneando un thread por cliente) puede verse antes del commit llamado "using threadpool instead of spawning threads".
 
-Utilizar un thread pool supone una mejoría que spawnear threads por cada nueva conexión. Esto se debe a que limita la cantidad de threads que se crean, reduciendo el overhead tanto de tiempo como de espacio que producen. 
+Utilizar un thread pool supone una mejoría ante spawnear threads por cada nueva conexión. Esto se debe a que limita la cantidad de threads que se crean, reduciendo el overhead tanto de tiempo como de espacio que producen. 
 
-En principio en la clase conversábamos que esto dificulta los ataques DoS, ya que no se podría forzar al servidor a consumir toda su memoria creando muchas conexiones. 
+En clase conversamos que en principio esto dificulta los ataques DoS, ya que no se podría forzar al servidor a consumir toda su memoria creando muchas conexiones. 
 
-Pero la utilización de un thread pool trae otro problema: la cantidad de clientes manejados de forma paralela se ve limitada por la cantidad de workers en el pool. Esto significa que un atacante podría abrir tantas conexiones como workers en el pool y nunca hacer ninguna request, dejando bloqueado el servicio. 
+Pero la utilización de un thread pool trae otro problema: la cantidad de clientes manejados de forma paralela se ve limitada por la cantidad de worker-threads en el pool. Esto significa que un atacante podría abrir tantas conexiones como workers en el pool y nunca hacer ninguna request, dejando bloqueado el servicio. 
 
 Para intentar prevenir esto, agregué un timeout a la hora de esperar mensajes del cliente. Si no envía ningún mensaje pasado el timeout, se dropea la conexión y se pasa al siguiente cliente. Si bien esto no es suficiente (pues un atacante podría continuar creando muchísimas conexiones), considero que podría ser una posible solución.
 
 Prevenir de manera definitiva los ataques DoS no es sencillo y entiendo que no es el objetivo del trabajo práctico. Pero si se quisiera, podrían agregarse más prevenciones por ejemplo agregando sistemas de autenticación, detección de conexiones sospechosas, etc.
+
+Las tareas que recibe el thread pool no son "manejadores de conexiones", sino "manejadores de requests". De esta manera, teniendo N worker threads, se podrían manejar más de N clientes en simultáneo, pero no más de N requests de los mismos en simultáneo.
