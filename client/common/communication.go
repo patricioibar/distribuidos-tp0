@@ -62,7 +62,7 @@ func SendMessage(conn net.Conn, msg Message) error {
 
 func ReceiveMessage(conn net.Conn) (Message, error) {
 	header := make([]byte, HeaderSize)
-	if _, err := io.ReadFull(conn, header); err != nil {
+	if err := readExact(conn, header); err != nil {
 		return nil, fmt.Errorf("error leyendo header: %w", err)
 	}
 
@@ -70,9 +70,24 @@ func ReceiveMessage(conn net.Conn) (Message, error) {
 	length := binary.BigEndian.Uint32(header[1:])
 
 	body := make([]byte, length)
-	if _, err := io.ReadFull(conn, body); err != nil {
+	if err := readExact(conn, body); err != nil {
 		return nil, fmt.Errorf("error leyendo body: %w", err)
 	}
 
 	return MessageFromBytes(msgType, body)
+}
+
+func readExact(r io.Reader, buf []byte) error {
+	total := 0
+	for total < len(buf) {
+		n, err := r.Read(buf[total:])
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return io.ErrUnexpectedEOF
+		}
+		total += n
+	}
+	return nil
 }
