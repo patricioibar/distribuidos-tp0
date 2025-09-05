@@ -26,24 +26,27 @@ TYPE_STRING = b'\x01'
 TYPE_STRING_LIST = b'\x02'
 MSG_TIMEOUT = 5
 
+def _recv_exact(sock: socket, nbytes: int) -> bytes:
+    data = bytearray()
+    
+    while len(data) < nbytes:
+        packet = sock.recv(nbytes - len(data), MSG_WAITALL)
+        if not packet:
+            raise EOFError("Socket closed before receiving expected bytes")
+        data += packet
+    return data
+
 class ProtocolMessage:
     @staticmethod
     def new_from_sock(sock: socket):
         sock.settimeout(MSG_TIMEOUT)
-        header = sock.recv(HEADER_SIZE)
-        if len(header) < HEADER_SIZE:
-            raise ConnectionError("Connection closed by the other side")
-        
+        header = _recv_exact(sock, HEADER_SIZE)
+
         type = header[0:1]
         length = int.from_bytes(header[1:5], byteorder='big')
-        
-        body = bytearray()
-        while len(body) < length:
-            packet = sock.recv(length - len(body))
-            if not packet:
-                raise EOFError("Socket closed before receiving full message")
-            body.extend(packet)
-            
+
+        body = _recv_exact(sock, length)
+
         constructor = TYPE_TO_CONSTRUCTOR.get(type)
         if not constructor:
             raise ValueError(f"Unknown message type: {type}")
