@@ -30,6 +30,7 @@ class Server:
         
         self._current_client_sockets = set()
         self._store_bets_lock = threading.Lock()
+        self._agency_done_submitting_lock = threading.Lock()
         self._done_writting_data_for_agency = {}
         self._thread_pool = ThreadPool(num_workers=total_agencies)
 
@@ -183,7 +184,9 @@ class Server:
         
         for e in self._done_writting_data_for_agency[agency]:
             e.wait()
-        self._agencies_done_submitting.add(agency_num)
+            
+        with self._agency_done_submitting_lock:
+            self._agencies_done_submitting.add(agency_num)
         logging.info(f"action: agency_done_submitting | result: success | agencia: {agency}")
 
         if len(self._agencies_done_submitting) == self._total_agencies:
